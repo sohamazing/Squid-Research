@@ -630,6 +630,7 @@ class HighContentScreeningGui(QMainWindow):
         if ENABLE_FLEXIBLE_MULTIPOINT:
             self.flexibleMultiPointWidget.signal_acquisition_started.connect(self.toggleAcquisitionStart)
             # self.flexibleMultiPointWidget.signal_z_stacking.connect(self.multipointController.set_z_stacking_config)
+            self.flexibleMultiPointWidget.signal_acquisition_channels.connect(self.multipointController.set_selected_configurations)
             if ENABLE_STITCHER:
                 self.flexibleMultiPointWidget.signal_stitcher_widget.connect(self.toggleStitcherWidget)
                 self.flexibleMultiPointWidget.signal_acquisition_channels.connect(self.stitcherWidget.updateRegistrationChannels)
@@ -638,6 +639,7 @@ class HighContentScreeningGui(QMainWindow):
         if ENABLE_WELLPLATE_MULTIPOINT:
             self.wellplateMultiPointWidget.signal_acquisition_started.connect(self.toggleAcquisitionStart)
             # self.wellplateMultiPointWidget.signal_z_stacking.connect(self.multipointController.set_z_stacking_config)
+            self.wellplateMultiPointWidget.signal_acquisition_channels.connect(self.multipointController.set_selected_configurations)
             if ENABLE_STITCHER:
                 self.wellplateMultiPointWidget.signal_stitcher_widget.connect(self.toggleStitcherWidget)
                 self.wellplateMultiPointWidget.signal_acquisition_channels.connect(self.stitcherWidget.updateRegistrationChannels)
@@ -858,7 +860,6 @@ class HighContentScreeningGui(QMainWindow):
                 # trigger wellplate update
                 self.navigationViewer.clear_overlay()
                 self.wellSelectionWidget.onSelectionChanged()
-
         elif is_flexible_acquisition:
             # trigger flexible regions update
             self.wellplateMultiPointWidget.clear_regions()

@@ -2679,12 +2679,12 @@ class FlexibleMultiPointWidget(QFrame):
             msg.setText("Please choose base saving directory first")
             msg.exec_()
             return
-        if not self.list_configurations.selectedItems(): # no channel selected
-            self.btn_startAcquisition.setChecked(False)
-            msg = QMessageBox()
-            msg.setText("Please select at least one imaging channel first")
-            msg.exec_()
-            return
+        #if not self.list_configurations.selectedItems(): # no channel selected
+        #    self.btn_startAcquisition.setChecked(False)
+        #    msg = QMessageBox()
+        #    msg.setText("Please select at least one imaging channel first")
+        #    msg.exec_()
+        #    return
         if pressed:
             # @@@ to do: add a widgetManger to enable and disable widget
             # @@@ to do: emit signal to widgetManager to disable other widgets
@@ -2713,7 +2713,7 @@ class FlexibleMultiPointWidget(QFrame):
             self.multipointController.set_af_flag(self.checkbox_withAutofocus.isChecked())
             self.multipointController.set_reflection_af_flag(self.checkbox_withReflectionAutofocus.isChecked())
             self.multipointController.set_base_path(self.lineEdit_savingDir.text())
-            self.multipointController.set_selected_configurations((item.text() for item in self.list_configurations.selectedItems()))
+            # self.multipointController.set_selected_configurations((item.text() for item in self.list_configurations.selectedItems()))
             self.multipointController.start_new_experiment(self.lineEdit_experimentID.text())
 
             # emit signals
@@ -3108,7 +3108,6 @@ class WellplateMultiPointWidget(QFrame):
         self.acquisition_start_time = None
         self.manual_shape = None
         self.eta_seconds = 0
-        self.is_current_acquisition_widget = False
         self.parent = self.multipointController.parent
         self.add_components()
         self.setFrameStyle(QFrame.Panel | QFrame.Raised)
@@ -3983,10 +3982,10 @@ class WellplateMultiPointWidget(QFrame):
         #     msg.exec_()
         #     return
 
-        if not self.list_configurations.selectedItems():
-            self.btn_startAcquisition.setChecked(False)
-            QMessageBox.warning(self, "Warning", "Please select at least one imaging channel")
-            return
+        # if not self.list_configurations.selectedItems():
+        #    self.btn_startAcquisition.setChecked(False)
+        #    QMessageBox.warning(self, "Warning", "Please select at least one imaging channel")
+        #    return
 
         if pressed:
             self.setEnabled_all(False)
@@ -4035,7 +4034,7 @@ class WellplateMultiPointWidget(QFrame):
             self.multipointController.set_use_piezo(self.checkbox_usePiezo.isChecked())
             self.multipointController.set_af_flag(self.checkbox_withAutofocus.isChecked())
             self.multipointController.set_reflection_af_flag(self.checkbox_withReflectionAutofocus.isChecked())
-            self.multipointController.set_selected_configurations([item.text() for item in self.list_configurations.selectedItems()])
+            # self.multipointController.set_selected_configurations([item.text() for item in self.list_configurations.selectedItems()])
             self.multipointController.start_new_experiment(self.lineEdit_experimentID.text())
 
             # Emit signals

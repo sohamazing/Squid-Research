@@ -220,7 +220,7 @@ class CAMERA_CONFIG:
     ROI_WIDTH_DEFAULT = 3104
     ROI_HEIGHT_DEFAULT = 2084
 
-PRINT_CAMERA_FPS = True
+PRINT_CAMERA_FPS = False
 
 ###########################################################
 #### machine specific configurations - to be overridden ###
