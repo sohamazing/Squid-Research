@@ -6,18 +6,21 @@ The declarations of classes and functions in this file
 are subject to change without notice.
 """
 
-__date__ = '2021-06-30'
-__copyright__ = 'Copyright (C) 2021-2024 Hamamatsu Photonics K.K.'
+__date__ = "2021-06-30"
+__copyright__ = "Copyright (C) 2021-2024 Hamamatsu Photonics K.K."
 
 from control.dcamapi4 import *
+
 # DCAM-API v4 module
 
 import numpy as np
+
 # pip install numpy
 # allocated to receive the image data
 
 
 # ==== DCAMAPI helper functions ====
+
 
 def dcammisc_setupframe(hdcam, bufframe: DCAMBUF_FRAME):
     """Setup DCAMBUF_FRAME instance.
@@ -26,7 +29,7 @@ def dcammisc_setupframe(hdcam, bufframe: DCAMBUF_FRAME):
     Args:
         hdcam (c_void_p): DCAM handle.
         bufframe (DCAMBUF_FRAME): Frame information.
-    
+
     Returns:
         DCAMERR: DCAMERR value.
     """
@@ -40,12 +43,12 @@ def dcammisc_setupframe(hdcam, bufframe: DCAMBUF_FRAME):
         err = dcamprop_getvalue(hdcam, idprop, byref(fValue))
         if not err.is_failed():
             bufframe.width = int(fValue.value)
-            
+
             idprop = DCAM_IDPROP.IMAGE_HEIGHT
             err = dcamprop_getvalue(hdcam, idprop, byref(fValue))
             if not err.is_failed():
                 bufframe.height = int(fValue.value)
-                
+
                 idprop = DCAM_IDPROP.FRAMEBUNDLE_MODE
                 err = dcamprop_getvalue(hdcam, idprop, byref(fValue))
                 if not err.is_failed() and int(fValue.value) == DCAMPROP.MODE.ON:
@@ -69,18 +72,18 @@ def dcammisc_alloc_ndarray(frame: DCAMBUF_FRAME, framebundlenum=1):
     Args:
         frame (DCAMBUF_FRAME): Frame information.
         framebundlenum (int): Frame Bundle number.
-    
+
     Returns:
         NumPy ndarray: NumPy ndarray buffer.
         bool: False if failed to allocate NumPy ndarray buffer.
     """
     height = frame.height * framebundlenum
-        
+
     if frame.type == DCAM_PIXELTYPE.MONO16:
-        return np.zeros((height, frame.width), dtype='uint16')
+        return np.zeros((height, frame.width), dtype="uint16")
 
     if frame.type == DCAM_PIXELTYPE.MONO8:
-        return np.zeros((height, frame.width), dtype='uint8')
+        return np.zeros((height, frame.width), dtype="uint8")
 
     return False
 
@@ -165,6 +168,7 @@ class Dcamapi:
 
         return cls.__devicecount
 
+
 # ==== Dcam class ====
 
 
@@ -177,7 +181,7 @@ class Dcam:
         self.__bufframe = DCAMBUF_FRAME()
 
     def __repr__(self):
-        return 'Dcam()'
+        return "Dcam()"
 
     def __result(self, errvalue):
         """Keep last error code.
@@ -505,7 +509,7 @@ class Dcam:
         """
         if not self.is_opened():
             return self.__result(DCAMERR.INVALIDHANDLE)  # instance is not opened yet.
-        
+
         framebundlenum = 1
 
         fValue = c_double()
@@ -516,7 +520,7 @@ class Dcam:
                 framebundlenum = int(fValue.value)
             else:
                 return False
-        
+
         npBuf = dcammisc_alloc_ndarray(self.__bufframe, framebundlenum)
         if npBuf is False:
             return self.__result(DCAMERR.INVALIDPIXELTYPE)
@@ -659,7 +663,6 @@ class Dcam:
 
         return True
 
-
     # dcamwait functions
 
     def __open_hdcamwait(self):
@@ -744,5 +747,3 @@ class Dcam:
         # ret is DCAMWAIT_CAPEVENT.FRAMEREADY
 
         return True
-
-

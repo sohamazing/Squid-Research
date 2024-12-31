@@ -13,13 +13,14 @@ from ctypes import *
 # abosorb platform dependency
 
 __platform_system = platform.system()
-if __platform_system == 'Windows':
-    __dll = windll.LoadLibrary('dcamapi.dll')
+if __platform_system == "Windows":
+    __dll = windll.LoadLibrary("dcamapi.dll")
 else:  # Linux
-    __dll = cdll.LoadLibrary('/usr/local/lib/libdcamapi.so')
+    __dll = cdll.LoadLibrary("/usr/local/lib/libdcamapi.so")
 
 
 # ==== declare constants ====
+
 
 class DCAMERR(IntEnum):
     # status error
@@ -48,7 +49,9 @@ class DCAMERR(IntEnum):
     NOGRABBER = -2147483129  # 0x80000207, no grabber
     NOCOMBINATION = -2147483128  # 0x80000208, no combination on registry
     FAILOPEN = -2147479551  # 0x80001001, DEPRECATED
-    FRAMEGRABBER_NEEDS_FIRMWAREUPDATE = -2147479550  # 0x80001002, need to update frame grabber firmware to use the camera
+    FRAMEGRABBER_NEEDS_FIRMWAREUPDATE = (
+        -2147479550
+    )  # 0x80001002, need to update frame grabber firmware to use the camera
     INVALIDMODULE = -2147483119  # 0x80000211, dcam_init() found invalid module
     INVALIDCOMMPORT = -2147483118  # 0x80000212, invalid serial port
     FAILOPENBUS = -2130702335  # 0x81001001, the bus or driver are not available
@@ -68,7 +71,9 @@ class DCAMERR(IntEnum):
     NOPROPERTY = -2147481560  # 0x80000828, there is no altenative or influence id, or no more property id
     INVALIDCHANNEL = -2147481559  # 0x80000829, the property id specifies channel but channel is invalid
     INVALIDVIEW = -2147481558  # 0x8000082a, the property id specifies channel but channel is invalid
-    INVALIDSUBARRAY = -2147481557  # 0x8000082b, the combination of subarray values are invalid. e.g. DCAM_IDPROP_SUBARRAYHPOS + DCAM_IDPROP_SUBARRAYHSIZE is greater than the number of horizontal pixel of sensor.
+    INVALIDSUBARRAY = (
+        -2147481557
+    )  # 0x8000082b, the combination of subarray values are invalid. e.g. DCAM_IDPROP_SUBARRAYHPOS + DCAM_IDPROP_SUBARRAYHSIZE is greater than the number of horizontal pixel of sensor.
     ACCESSDENY = -2147481556  # 0x8000082c, the property cannot access during this DCAM STATUS
     NOVALUETEXT = -2147481555  # 0x8000082d, the property does not have value text
     WRONGPROPERTYVALUE = -2147481554  # 0x8000082e, at least one property value is wrong
@@ -77,12 +82,22 @@ class DCAMERR(IntEnum):
     INVALIDFRAMEINDEX = -2147481549  # 0x80000833, the frame index is invalid
     INVALIDSESSIONINDEX = -2147481548  # 0x80000834, the session index is invalid
     NOCORRECTIONDATA = -2147481544  # 0x80000838, not take the dark and shading correction data yet.
-    CHANNELDEPENDENTVALUE = -2147481543  # 0x80000839, each channel has own property value so can't return overall property value.
-    VIEWDEPENDENTVALUE = -2147481542  # 0x8000083a, each view has own property value so can't return overall property value.
-    NODEVICEBUFFER = -2147481541  # 0x8000083b, the frame count is larger than device momory size on using device memory.
+    CHANNELDEPENDENTVALUE = (
+        -2147481543
+    )  # 0x80000839, each channel has own property value so can't return overall property value.
+    VIEWDEPENDENTVALUE = (
+        -2147481542
+    )  # 0x8000083a, each view has own property value so can't return overall property value.
+    NODEVICEBUFFER = (
+        -2147481541
+    )  # 0x8000083b, the frame count is larger than device momory size on using device memory.
     REQUIREDSNAP = -2147481540  # 0x8000083c, the capture mode is sequence on using device memory.
-    LESSSYSTEMMEMORY = -2147481537  # 0x8000083f, the sysmte memory size is too small. PC doesn't have enough memory or is limited memory by 32bit OS.
-    INVALID_SELECTEDLINES = -2147481534  # 0x80000842, the combination of selected lines values are invalid. e.g. DCAM_IDPROP_SELECTEDLINES_VPOS + DCAM_IDPROP_SELECTEDLINES_VSIZE is greater than the number of vertical lines of sensor.
+    LESSSYSTEMMEMORY = (
+        -2147481537
+    )  # 0x8000083f, the sysmte memory size is too small. PC doesn't have enough memory or is limited memory by 32bit OS.
+    INVALID_SELECTEDLINES = (
+        -2147481534
+    )  # 0x80000842, the combination of selected lines values are invalid. e.g. DCAM_IDPROP_SELECTEDLINES_VPOS + DCAM_IDPROP_SELECTEDLINES_VSIZE is greater than the number of vertical lines of sensor.
     NOTSUPPORT = -2147479805  # 0x80000f03, camera does not support the function or property with current settings
     # camera or bus trouble
     FAILREADCAMERA = -2097147902  # 0x83001002, failed to read data from camera
@@ -90,7 +105,9 @@ class DCAMERR(IntEnum):
     CONFLICTCOMMPORT = -2097147900  # 0x83001004, conflict the com port name user set
     OPTICS_UNPLUGGED = -2097147899  # 0x83001005, Optics part is unplugged so please check it.
     FAILCALIBRATION = -2097147898  # 0x83001006, fail calibration
-    MISMATCH_CONFIGURATION = -2097147887  # 0x83001011, mismatch between camera output(connection) and frame grabber specs
+    MISMATCH_CONFIGURATION = (
+        -2097147887
+    )  # 0x83001011, mismatch between camera output(connection) and frame grabber specs
     # 0x84000100 - 0x840001FF, DCAMERR_INVALIDMEMBER_x
     INVALIDMEMBER_3 = -2080374525  # 0x84000103, 3th member variable is invalid value
     INVALIDMEMBER_5 = -2080374523  # 0x84000105, 5th member variable is invalid value
@@ -106,11 +123,15 @@ class DCAMERR(IntEnum):
     ALREADYOCCUPIED = -2080370681  # 0x84001007, DCAMREC handle is already occupied by other HDCAM
     TOOLARGEUSERDATASIZE = -2080370680  # 0x84001008, DCAMREC is set the large value to user data size
     INVALIDWAITHANDLE = -2080366591  # 0x84002001, DCAMWAIT is invalid handle
-    NEWRUNTIMEREQUIRED = -2080366590  # 0x84002002, DCAM Module Version is older than the version that the camera requests
+    NEWRUNTIMEREQUIRED = (
+        -2080366590
+    )  # 0x84002002, DCAM Module Version is older than the version that the camera requests
     VERSIONMISMATCH = -2080366589  # 0x84002003, Camre returns the error on setting parameter to limit version
     RUNAS_FACTORYMODE = -2080366588  # 0x84002004, Camera is running as a factory mode
     IMAGE_UNKNOWNSIGNATURE = -2080362495  # 0x84003001, sigunature of image header is unknown or corrupted
-    IMAGE_NEWRUNTIMEREQUIRED = -2080362494  # 0x84003002, version of image header is newer than version that used DCAM supports
+    IMAGE_NEWRUNTIMEREQUIRED = (
+        -2080362494
+    )  # 0x84003002, version of image header is newer than version that used DCAM supports
     IMAGE_ERRORSTATUSEXIST = -2080362493  # 0x84003003, image header stands error status
     IMAGE_HEADERCORRUPTED = -2080358396  # 0x84004004, image header value is strange
     IMAGE_BROKENCONTENT = -2080358395  # 0x84004005, image content is corrupted
@@ -128,7 +149,9 @@ class DCAMERR(IntEnum):
     THRUADAPTER = -2147479803  # 0x80000f05
     NOCONNECTION = -2147479801  # 0x80000f07, HDCAM lost connection to camera
     NOTIMPLEMENT = -2147479806  # 0x80000f02, not yet implementation
-    DELAYEDFRAME = -2147479799  # 0x80000f09, the frame waiting re-load from hardware buffer with SNAPSHOT of DEVICEBUFFER MODE
+    DELAYEDFRAME = (
+        -2147479799
+    )  # 0x80000f09, the frame waiting re-load from hardware buffer with SNAPSHOT of DEVICEBUFFER MODE
     DEVICEINITIALIZING = -1342177279  # 0xb0000001
     APIINIT_INITOPTIONBYTES = -1543438333  # 0xa4010003, DCAMAPI_INIT::initoptionbytes is invalid
     APIINIT_INITOPTION = -1543438332  # 0xa4010004, DCAMAPI_INIT::initoption is invalid
@@ -136,10 +159,11 @@ class DCAMERR(IntEnum):
     INITOPTION_COLLISION_MAX = -1543372801  # 0xa401FFFF
     # Between DCAMERR_INITOPTION_COLLISION_BASE and DCAMERR_INITOPTION_COLLISION_MAX means there is collision with initoption in DCAMAPI_INIT.
     # The value "(error code) - DCAMERR_INITOPTION_COLLISION_BASE" indicates the index which second INITOPTION group happens.
-    MISSPROP_TRIGGERSOURCE = -535822064  # 0xE0100110, the trigger mode is internal or syncreadout on using device memory.
+    MISSPROP_TRIGGERSOURCE = (
+        -535822064
+    )  # 0xE0100110, the trigger mode is internal or syncreadout on using device memory.
     # success
     SUCCESS = 1  # 1, no error, general success code, app should check the value is positive
-
 
     ALREADYINITIALIZED = -520093695  # 0xE1000001
     ALREADYOPENED = -520093694  # 0xE1000002
@@ -199,13 +223,14 @@ class DCAM_IDSTR(IntEnum):
     DRIVERVERSION = 0x04000106
     MODULEVERSION = 0x04000107
     DCAMAPIVERSION = 0x04000108
-    CAMERA_SERIESNAME = 0x0400012c
+    CAMERA_SERIESNAME = 0x0400012C
 
 
 class DCAMAPI_INITOPTION(IntEnum):
     """
     Initialize parameter.
     """
+
     APIVER__LATEST = 0x00000001
     APIVER__4_0 = 0x00000400
     ENDMARK = 0x00000000
@@ -520,12 +545,12 @@ class DCAM_IDPROP(IntEnum):
 class DCAMAPI_INIT(Structure):
     _pack_ = 8
     _fields_ = [
-        ('size', c_int32),
-        ('iDeviceCount', c_int32),  # out
-        ('reserved', c_int32),
-        ('initoptionbytes', c_int32),
-        ('initoption', POINTER(c_int32)),
-        ('guid', c_void_p)  # const DCAM_GUID*
+        ("size", c_int32),
+        ("iDeviceCount", c_int32),  # out
+        ("reserved", c_int32),
+        ("initoptionbytes", c_int32),
+        ("initoption", POINTER(c_int32)),
+        ("guid", c_void_p),  # const DCAM_GUID*
     ]
 
     def __init__(self):
@@ -534,11 +559,7 @@ class DCAMAPI_INIT(Structure):
 
 class DCAMDEV_OPEN(Structure):
     _pack_ = 8
-    _fields_ = [
-        ('size', c_int32),
-        ('index', c_int32),
-        ('hdcam', c_void_p)  # out
-    ]
+    _fields_ = [("size", c_int32), ("index", c_int32), ("hdcam", c_void_p)]  # out
 
     def __init__(self):
         self.size = sizeof(DCAMDEV_OPEN)
@@ -547,12 +568,7 @@ class DCAMDEV_OPEN(Structure):
 
 class DCAMDEV_STRING(Structure):
     _pack_ = 8
-    _fields_ = [
-        ('size', c_int32),
-        ('iString', c_int32),
-        ('text', c_char_p),
-        ('textbytes', c_int32)
-    ]
+    _fields_ = [("size", c_int32), ("iString", c_int32), ("text", c_char_p), ("textbytes", c_int32)]
 
     def __init__(self):
         self.size = sizeof(DCAMDEV_STRING)
@@ -568,6 +584,7 @@ class DCAM_PROP:
         """
         Attributer flags.
         """
+
         HASRANGE = -2147483647  # 0x80000000
         HASSTEP = 0x40000000
         HASDEFAULT = 0x20000000
@@ -591,6 +608,7 @@ class DCAM_PROP:
         """
         property types.
         """
+
         NONE = 0
         MODE = 1
         LONG = 2
@@ -601,6 +619,7 @@ class DCAM_PROP:
         """
         Attributer2 flags.
         """
+
     ARRAYBASE = 134217728  # 0x08000000
     ARRAYELEMENT = 67108864  # 0x04000000
     REAL32 = 33554432  # 0x02000000
@@ -608,11 +627,11 @@ class DCAM_PROP:
     CHANNELSEPARATEDDATA = 262144  # 0x00040000, Channel 0 value is total of each channels.
 
 
-
 class DCAMPROP_OPTION(IntEnum):
     """
     options
     """
+
     PRIOR = -16777215  # 0xFF000000
     NEXT = 0x01000000
     NEAREST = 0x80000000
@@ -627,6 +646,7 @@ class DCAMPROP_UNIT(IntEnum):
     """
     Unit of value
     """
+
     SECOND = 1
     CELSIUS = 2
     KELVIN = 3
@@ -635,6 +655,7 @@ class DCAMPROP_UNIT(IntEnum):
     DEGREE = 6
     MICROMETER = 7
     NONE = 0
+
 
 # property values
 
@@ -1068,27 +1089,28 @@ class DCAMPROP:
         OFF = 1
         ON = 2
 
+
 class DCAMPROP_ATTR(Structure):
     _pack_ = 8
     _fields_ = [
-        ('cbSize', c_int32),
-        ('iProp', c_int32),
-        ('option', c_int32),
-        ('iReserved1', c_int32),
-        ('attribute', c_int32),
-        ('iGroup', c_int32),
-        ('iUnit', c_int32),
-        ('attribute2', c_int32),
-        ('valuemin', c_double),
-        ('valuemax', c_double),
-        ('valuestep', c_double),
-        ('valuedefault', c_double),
-        ('nMaxChannel', c_int32),
-        ('iReserved3', c_int32),
-        ('nMaxView', c_int32),
-        ('iProp_NumberOfElement', c_int32),
-        ('iProp_ArrayBase', c_int32),
-        ('iPropStep_Element', c_int32)
+        ("cbSize", c_int32),
+        ("iProp", c_int32),
+        ("option", c_int32),
+        ("iReserved1", c_int32),
+        ("attribute", c_int32),
+        ("iGroup", c_int32),
+        ("iUnit", c_int32),
+        ("attribute2", c_int32),
+        ("valuemin", c_double),
+        ("valuemax", c_double),
+        ("valuestep", c_double),
+        ("valuedefault", c_double),
+        ("nMaxChannel", c_int32),
+        ("iReserved3", c_int32),
+        ("nMaxView", c_int32),
+        ("iProp_NumberOfElement", c_int32),
+        ("iProp_ArrayBase", c_int32),
+        ("iPropStep_Element", c_int32),
     ]
 
     def __init__(self):
@@ -1131,11 +1153,11 @@ class DCAMPROP_ATTR(Structure):
 class DCAMPROP_VALUETEXT(Structure):
     _pack_ = 8
     _fields_ = [
-        ('cbSize', c_int32),
-        ('iProp', c_int32),
-        ('value', c_double),
-        ('text', c_char_p),
-        ('textbytes', c_int32)
+        ("cbSize", c_int32),
+        ("iProp", c_int32),
+        ("value", c_double),
+        ("text", c_char_p),
+        ("textbytes", c_int32),
     ]
 
     def __init__(self):
@@ -1149,10 +1171,7 @@ class DCAMPROP_VALUETEXT(Structure):
 
 class DCAM_TIMESTAMP(Structure):
     _pack_ = 8
-    _fields_ = [
-        ('sec', c_uint32),
-        ('microsec', c_int32)
-    ]
+    _fields_ = [("sec", c_uint32), ("microsec", c_int32)]
 
     def __init__(self):
         self.sec = 0
@@ -1161,12 +1180,7 @@ class DCAM_TIMESTAMP(Structure):
 
 class DCAMCAP_TRANSFERINFO(Structure):
     _pack_ = 8
-    _fields_ = [
-        ('size', c_int32),
-        ('iKind', c_int32),
-        ('nNewestFrameIndex', c_int32),
-        ('nFrameCount', c_int32)
-    ]
+    _fields_ = [("size", c_int32), ("iKind", c_int32), ("nNewestFrameIndex", c_int32), ("nFrameCount", c_int32)]
 
     def __init__(self):
         self.size = sizeof(DCAMCAP_TRANSFERINFO)
@@ -1178,20 +1192,20 @@ class DCAMCAP_TRANSFERINFO(Structure):
 class DCAMBUF_FRAME(Structure):
     _pack_ = 8
     _fields_ = [
-        ('size', c_int32),
-        ('iKind', c_int32),
-        ('option', c_int32),
-        ('iFrame', c_int32),
-        ('buf', c_void_p),
-        ('rowbytes', c_int32),
-        ('type', c_int32),  # DCAM_PIXELTYPE
-        ('width', c_int32),
-        ('height', c_int32),
-        ('left', c_int32),
-        ('top', c_int32),
-        ('timestamp', DCAM_TIMESTAMP),
-        ('framestamp', c_int32),
-        ('camerastamp', c_int32)
+        ("size", c_int32),
+        ("iKind", c_int32),
+        ("option", c_int32),
+        ("iFrame", c_int32),
+        ("buf", c_void_p),
+        ("rowbytes", c_int32),
+        ("type", c_int32),  # DCAM_PIXELTYPE
+        ("width", c_int32),
+        ("height", c_int32),
+        ("left", c_int32),
+        ("top", c_int32),
+        ("timestamp", DCAM_TIMESTAMP),
+        ("framestamp", c_int32),
+        ("camerastamp", c_int32),
     ]
 
     def __init__(self):
@@ -1213,12 +1227,7 @@ class DCAMBUF_FRAME(Structure):
 
 class DCAMWAIT_OPEN(Structure):
     _pack_ = 8
-    _fields_ = [
-        ('size', c_int32),
-        ('supportevent', c_int32),  # out
-        ('hwait', c_void_p),  # out
-        ('hdcam', c_void_p)
-    ]
+    _fields_ = [("size", c_int32), ("supportevent", c_int32), ("hwait", c_void_p), ("hdcam", c_void_p)]  # out  # out
 
     def __init__(self):
         self.size = sizeof(DCAMWAIT_OPEN)
@@ -1226,33 +1235,29 @@ class DCAMWAIT_OPEN(Structure):
 
 class DCAMWAIT_START(Structure):
     _pack_ = 8
-    _fields_ = [
-        ('size', c_int32),
-        ('eventhappened', c_int32),  # out
-        ('eventmask', c_int32),
-        ('timeout', c_int32)
-    ]
+    _fields_ = [("size", c_int32), ("eventhappened", c_int32), ("eventmask", c_int32), ("timeout", c_int32)]  # out
 
     def __init__(self):
         self.size = sizeof(DCAMWAIT_START)
 
 
-if __platform_system == 'Windows':
+if __platform_system == "Windows":
+
     class DCAMREC_OPEN(Structure):  # DCAMREC_OPENW
         _pack_ = 8
         _fields_ = [
-            ('size', c_int32),  # [in] size of this structure.
-            ('reserved', c_int32),  # [in]
-            ('hrec', c_void_p),  # [out]
-            ('path', c_wchar_p),  # [in] wchar_t*
-            ('ext', c_wchar_p),  # [in] wchar_t*
-            ('maxframepersession', c_int32),  # [in]
-            ('userdatasize', c_int32),  # [in]
-            ('userdatasize_session', c_int32),  # [in]
-            ('userdatasize_file', c_int32),  # [in]
-            ('usertextsize', c_int32),  # [in]
-            ('usertextsize_session', c_int32),  # [in]
-            ('usertextsize_file', c_int32),  # [in]
+            ("size", c_int32),  # [in] size of this structure.
+            ("reserved", c_int32),  # [in]
+            ("hrec", c_void_p),  # [out]
+            ("path", c_wchar_p),  # [in] wchar_t*
+            ("ext", c_wchar_p),  # [in] wchar_t*
+            ("maxframepersession", c_int32),  # [in]
+            ("userdatasize", c_int32),  # [in]
+            ("userdatasize_session", c_int32),  # [in]
+            ("userdatasize_file", c_int32),  # [in]
+            ("usertextsize", c_int32),  # [in]
+            ("usertextsize_session", c_int32),  # [in]
+            ("usertextsize_file", c_int32),  # [in]
         ]
 
         def __init__(self):
@@ -1340,7 +1345,7 @@ dcamcap_firetrigger = __dll.dcamcap_firetrigger
 dcamcap_firetrigger.argtypes = [c_void_p, c_int32]
 dcamcap_firetrigger.restype = DCAMERR
 
-if __platform_system == 'Windows':
+if __platform_system == "Windows":
     dcamcap_record = __dll.dcamcap_record
     dcamcap_record.argtypes = [c_void_p, c_void_p]
     dcamcap_record.restype = DCAMERR
@@ -1358,7 +1363,7 @@ dcamwait_abort = __dll.dcamwait_abort
 dcamwait_abort.argtypes = [c_void_p]
 dcamwait_abort.restype = DCAMERR
 
-if __platform_system == 'Windows':
+if __platform_system == "Windows":
     dcamrec_open = __dll.dcamrec_openW
     dcamrec_open.argtypes = [POINTER(DCAMREC_OPEN)]  # DCAMREC_OPENW
     dcamrec_open.restype = DCAMERR
@@ -1366,4 +1371,3 @@ if __platform_system == 'Windows':
     dcamrec_close = __dll.dcamrec_close
     dcamrec_close.argtypes = [c_void_p]
     dcamrec_close.restype = DCAMERR
-
