@@ -2061,6 +2061,9 @@ class MultiPointController(QObject):
     def set_fluorescence_rtp_flag(self, flag):
         self.do_fluorescence_rtp = flag
 
+    def set_focus_surface(self, surfaceFitter):
+        self.focus_surface = surfaceFitter
+
     def set_crop(self,crop_width, crop_height):
         self.crop_width = crop_width
         self.crop_height = crop_height
@@ -2174,8 +2177,19 @@ class MultiPointController(QObject):
         # run the acquisition
         self.timestamp_acquisition_started = time.time()
 
-        # create a QThread object
-        if self.gen_focus_map and not self.do_reflection_af:
+        if self.focus_surface:
+            print("Using focus surface for Z interpolation")
+            for region_id in self.scan_region_names:
+                region_fov_coords = self.scan_region_fov_coords_mm[region_id]
+                # Convert each tuple to list for modification
+                for i, coords in enumerate(region_fov_coords):
+                    x, y = coords[:2]  # This handles both (x,y) and (x,y,z) formats
+                    z = self.focus_surface.interpolate(x, y)
+                    # Modify the list directly
+                    region_fov_coords[i] = (x, y, z)
+                    self.scanCoordinates.update_fov_z_level(region_id, i, z)
+
+        elif self.gen_focus_map and not self.do_reflection_af:
             print("Generating focus map for multipoint grid")
             starting_x_mm = self.stage.get_pos().x_mm
             starting_y_mm = self.stage.get_pos().y_mm
@@ -2207,6 +2221,7 @@ class MultiPointController(QObject):
                 print("Invalid coordinates for focus map, aborting.")
                 return
 
+        # create a QThread object
         self.thread = QThread()
         # create a worker object
         if DO_FLUORESCENCE_RTP:
@@ -2946,16 +2961,20 @@ class NavigationViewer(QFrame):
     def create_layers(self):
         self.scan_overlay = np.zeros((self.image_height, self.image_width, 4), dtype=np.uint8)
         self.fov_overlay = np.zeros((self.image_height, self.image_width, 4), dtype=np.uint8)
+        self.focus_point_overlay = np.zeros((self.image_height, self.image_width, 4), dtype=np.uint8)
 
         self.scan_overlay_item = pg.ImageItem()
         self.fov_overlay_item = pg.ImageItem()
+        self.focus_point_overlay_item = pg.ImageItem()
 
         self.view.addItem(self.scan_overlay_item)
         self.view.addItem(self.fov_overlay_item)
+        self.view.addItem(self.focus_point_overlay_item)
 
         self.background_item.setZValue(-1)  # Background layer at the bottom
         self.scan_overlay_item.setZValue(0)  # Scan overlay in the middle
-        self.fov_overlay_item.setZValue(1)  # FOV overlay on top
+        self.fov_overlay_item.setZValue(1)  # FOV overlay next
+        self.focus_point_overlay_item.setZValue(2) # # Focus points on top
 
     def update_display_properties(self, sample):
         if sample == 'glass slide':
@@ -3078,6 +3097,23 @@ class NavigationViewer(QFrame):
         cv2.rectangle(self.scan_overlay, current_FOV_top_left, current_FOV_bottom_right, (0, 0, 0, 0), self.box_line_thickness)
         self.scan_overlay_item.setImage(self.scan_overlay)
 
+    def register_focus_point(self, x_mm, y_mm):
+        """Draw focus point marker as filled circle centered on the FOV"""
+        color = (0, 255, 0, 255)  # Green RGBA
+        # Get FOV corner coordinates, then calculate FOV center pixel coordinates
+        current_FOV_top_left, current_FOV_bottom_right = self.get_FOV_pixel_coordinates(x_mm, y_mm)
+        center_x = (current_FOV_top_left[0] + current_FOV_bottom_right[0]) // 2
+        center_y = (current_FOV_top_left[1] + current_FOV_bottom_right[1]) // 2
+        # Draw a filled circle at the center
+        radius = 5  # Radius of circle in pixels
+        cv2.circle(self.focus_point_overlay, (center_x, center_y), radius, color, -1)  # -1 thickness means filled
+        self.focus_point_overlay_item.setImage(self.focus_point_overlay)
+
+    def clear_focus_points(self):
+        """Clear just the focus point overlay"""
+        self.focus_point_overlay = np.zeros((self.image_height, self.image_width, 4), dtype=np.uint8)
+        self.focus_point_overlay_item.setImage(self.focus_point_overlay)
+
     def clear_slide(self):
         self.background_image = self.background_image_copy.copy()
         self.background_item.setImage(self.background_image)
@@ -3086,6 +3122,8 @@ class NavigationViewer(QFrame):
     def clear_overlay(self):
         self.scan_overlay.fill(0)
         self.scan_overlay_item.setImage(self.scan_overlay)
+        self.focus_point_overlay.fill(0)
+        self.focus_point_overlay_item.setImage(self.focus_point_overlay)
 
     def handle_mouse_click(self, evt):
         if not evt.double():
@@ -3294,8 +3332,12 @@ class ContrastManager:
         self.acquisition_dtype = target_dtype
 
 
-class ScanCoordinates:
+class ScanCoordinates(QObject):
+
+    signal_scan_coordinates_updated = Signal()
+
     def __init__(self, objectiveStore, navigationViewer, stage: AbstractStage):
+        QObject.__init__(self)
         # Wellplate settings
         self.objectiveStore = objectiveStore
         self.navigationViewer = navigationViewer
@@ -3347,11 +3389,11 @@ class ScanCoordinates:
             return None
 
         selected_wells = np.array(self.well_selector.get_selected_cells())
-        region_centers = {}
+        well_centers = {}
 
         # if no well selected
         if len(selected_wells) == 0:
-            return region_centers
+            return well_centers
         # populate the coordinates
         rows = np.unique(selected_wells[:,0])
         _increasing = True
@@ -3365,9 +3407,9 @@ class ScanCoordinates:
                 x_mm = self.a1_x_mm + (column * self.well_spacing_mm) + self.wellplate_offset_x_mm
                 y_mm = self.a1_y_mm + (row * self.well_spacing_mm) + self.wellplate_offset_y_mm
                 well_id = self._index_to_row(row) + str(column+1)
-                region_centers[well_id] = (x_mm,y_mm)
+                well_centers[well_id] = (x_mm,y_mm)
             _increasing = not _increasing
-        return region_centers
+        return well_centers
 
     def set_live_scan_coordinates(self, x_mm, y_mm, scan_size_mm, overlap_percent, shape):
         if shape != 'Manual' and self.format == 'glass slide':
@@ -3392,16 +3434,14 @@ class ScanCoordinates:
             for well_id, (x, y) in new_region_centers.items():
                 if well_id not in self.region_centers:
                     self.add_region(well_id, x, y, scan_size_mm, overlap_percent, shape)
-            print(f"Updated region coordinates: {len(self.region_centers)} wells")
-
         else:
-            print("Clear well coordinates")
             self.clear_regions()
 
     def set_manual_coordinates(self, manual_shapes, overlap_percent):
         self.clear_regions()
         if manual_shapes is not None:
             # Handle manual ROIs
+            manual_region_added = False
             for i, shape_coords in enumerate(manual_shapes):
                 scan_coordinates = self.add_manual_region(shape_coords, overlap_percent)
                 if scan_coordinates:
@@ -3412,6 +3452,10 @@ class ScanCoordinates:
                     center = np.mean(shape_coords, axis=0)
                     self.region_centers[region_name] = [center[0], center[1]]
                     self.region_fov_coordinates[region_name] = scan_coordinates
+                    manual_region_added = True
+                    print(f"Added Manual Region: {region_name}")
+            if manual_region_added:
+                self.signal_scan_coordinates_updated.emit()
         else:
             print("No Manual ROI found")
 
@@ -3465,6 +3509,8 @@ class ScanCoordinates:
 
         self.region_centers[well_id] = [float(center_x), float(center_y), float(self.stage.get_pos().z_mm)]
         self.region_fov_coordinates[well_id] =  scan_coordinates
+        self.signal_scan_coordinates_updated.emit()
+        print(f"Added Region: {well_id}")
 
     def remove_region(self, well_id):
         if well_id in self.region_centers:
@@ -3476,11 +3522,13 @@ class ScanCoordinates:
                     self.navigationViewer.deregister_fov_to_image(coord[0], coord[1])
 
             print(f"Removed Region: {well_id}")
+            self.signal_scan_coordinates_updated.emit()
 
     def clear_regions(self):
         self.region_centers.clear()
         self.region_fov_coordinates.clear()
         self.navigationViewer.clear_overlay()
+        self.signal_scan_coordinates_updated.emit()
         print("Cleared All Regions")
 
     def add_flexible_region(self, region_id, center_x, center_y, center_z, Nx, Ny, overlap_percent=10):
@@ -3511,6 +3559,7 @@ class ScanCoordinates:
             print(f"Added Flexible Region: {region_id}")
             self.region_centers[region_id] = [center_x, center_y, center_z]
             self.region_fov_coordinates[region_id] = scan_coordinates
+            self.signal_scan_coordinates_updated.emit()
         else:
             print(f"Region Out of Bounds: {region_id}")
 
@@ -3536,8 +3585,10 @@ class ScanCoordinates:
             scan_coordinates.extend(row)
 
         if scan_coordinates:  # Only add region if there are valid coordinates
+            print(f"Added Flexible Region: {region_id}")
             self.region_centers[region_id] = [center_x, center_y, center_z]
             self.region_fov_coordinates[region_id] = scan_coordinates
+            self.signal_scan_coordinates_updated.emit()
         else:
             print(f"Region Out of Bounds: {region_id}")
 
@@ -3706,6 +3757,131 @@ class ScanCoordinates:
                 self.region_centers[region_id].append(new_z)
 
         print(f"Updated z-level to {new_z} for region:{region_id}, fov:{fov}")
+
+
+from scipy.interpolate import SmoothBivariateSpline, RBFInterpolator
+class SurfaceFitter:
+    """Handles fitting and interpolation of slide surfaces through measured focus points"""
+
+    def __init__(self, smoothing_factor=0.1):
+        self.smoothing_factor = smoothing_factor
+        self.surface_fit = None
+        self.method = 'spline'  # can be 'spline' or 'rbf'
+        self.is_fitted = False
+        self.points = None
+
+    def set_method(self, method):
+        """Set interpolation method
+
+        Args:
+            method (str): Either 'spline' or 'rbf' (Radial Basis Function)
+        """
+        if method not in ['spline', 'rbf']:
+            raise ValueError("Method must be either 'spline' or 'rbf'")
+        self.method = method
+        self.is_fitted = False
+
+    def fit(self, points):
+        """Fit surface through provided focus points
+
+        Args:
+            points (list): List of (x,y,z) tuples
+
+        Returns:
+            tuple: (mean_error, std_error) in mm
+        """
+        if len(points) < 4:
+            raise ValueError("Need at least 4 points to fit surface")
+
+        self.points = np.array(points)
+        x = self.points[:,0]
+        y = self.points[:,1]
+        z = self.points[:,2]
+
+        if self.method == 'spline':
+            try:
+                self.surface_fit = SmoothBivariateSpline(
+                    x, y, z,
+                    kx=3,  # cubic spline in x
+                    ky=3,  # cubic spline in y
+                    s=self.smoothing_factor
+                )
+            except Exception as e:
+                print(f"Spline fitting failed: {str(e)}, falling back to RBF")
+                self.method = 'rbf'
+                self._fit_rbf(x, y, z)
+        else:
+            self._fit_rbf(x, y, z)
+
+        self.is_fitted = True
+        errors = self._calculate_fitting_errors()
+        return np.mean(errors), np.std(errors)
+
+    def _fit_rbf(self, x, y, z):
+        """Fit using Radial Basis Function interpolation"""
+        xy = np.column_stack((x, y))
+        self.surface_fit = RBFInterpolator(
+            xy, z,
+            kernel='thin_plate_spline',
+            epsilon=self.smoothing_factor
+        )
+
+    def interpolate(self, x, y):
+        """Get interpolated Z value at given (x,y) coordinates
+
+        Args:
+            x (float or array): X coordinate(s)
+            y (float or array): Y coordinate(s)
+
+        Returns:
+            float or array: Interpolated Z value(s)
+        """
+        if not self.is_fitted:
+            raise RuntimeError("Must fit surface before interpolating")
+
+        if np.isscalar(x) and np.isscalar(y):
+            if self.method == 'spline':
+                return float(self.surface_fit.ev(x, y))
+            else:
+                return float(self.surface_fit([[x, y]]))
+        else:
+            x = np.asarray(x)
+            y = np.asarray(y)
+            if self.method == 'spline':
+                return self.surface_fit.ev(x, y)
+            else:
+                xy = np.column_stack((x.ravel(), y.ravel()))
+                z = self.surface_fit(xy)
+                return z.reshape(x.shape)
+
+    def _calculate_fitting_errors(self):
+        """Calculate absolute errors at measured points"""
+        errors = []
+        for x, y, z_measured in self.points:
+            z_fit = self.interpolate(x, y)
+            errors.append(abs(z_fit - z_measured))
+        return np.array(errors)
+
+    def get_surface_grid(self, x_range, y_range, num_points=50):
+        """Generate grid of interpolated Z values for visualization
+
+        Args:
+            x_range (tuple): (min_x, max_x)
+            y_range (tuple): (min_y, max_y)
+            num_points (int): Number of points per dimension
+
+        Returns:
+            tuple: (X grid, Y grid, Z grid)
+        """
+        if not self.is_fitted:
+            raise RuntimeError("Must fit surface before generating grid")
+
+        x = np.linspace(x_range[0], x_range[1], num_points)
+        y = np.linspace(y_range[0], y_range[1], num_points)
+        X, Y = np.meshgrid(x, y)
+        Z = self.interpolate(X, Y)
+
+        return X, Y, Z
 
 
 class LaserAutofocusController(QObject):

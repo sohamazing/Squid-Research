@@ -417,6 +417,7 @@ class HighContentScreeningGui(QMainWindow):
         else:
             self.wellSelectionWidget = widgets.Well1536SelectionWidget()
         self.scanCoordinates.add_well_selector(self.wellSelectionWidget)
+        self.focusSurfaceWidget = widgets.FocusSurfaceWidget(self.stage, self.navigationViewer, self.scanCoordinates, core.SurfaceFitter())
 
         if SUPPORT_LASER_AUTOFOCUS:
             if FOCUS_CAMERA_TYPE == "Toupcam":
@@ -445,8 +446,8 @@ class HighContentScreeningGui(QMainWindow):
         else:
             self.setupImageDisplayTabs()
 
-        self.flexibleMultiPointWidget = widgets.FlexibleMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates)
-        self.wellplateMultiPointWidget = widgets.WellplateMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.napariMosaicDisplayWidget)
+        self.flexibleMultiPointWidget = widgets.FlexibleMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.focusSurfaceWidget)
+        self.wellplateMultiPointWidget = widgets.WellplateMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.focusSurfaceWidget, self.napariMosaicDisplayWidget)
         self.sampleSettingsWidget = widgets.SampleSettingsWidget(self.objectivesWidget, self.wellplateFormatWidget)
 
         if ENABLE_TRACKING:
@@ -540,11 +541,12 @@ class HighContentScreeningGui(QMainWindow):
         if USE_ZABER_EMISSION_FILTER_WHEEL or USE_OPTOSPIN_EMISSION_FILTER_WHEEL:
             self.cameraTabWidget.addTab(self.filterControllerWidget, "Emission Filter")
         if USE_SQUID_FILTERWHEEL:
-            self.cameraTabWidget.addTab(self.squidFilterWidget,"SquidFilter")
+            self.cameraTabWidget.addTab(self.squidFilterWidget,"Squid Filter")
         self.cameraTabWidget.addTab(self.cameraSettingWidget, 'Camera')
         self.cameraTabWidget.addTab(self.autofocusWidget, "Contrast AF")
         if SUPPORT_LASER_AUTOFOCUS:
             self.cameraTabWidget.addTab(self.laserAutofocusControlWidget, "Laser AF")
+        self.cameraTabWidget.addTab(self.focusSurfaceWidget, "Focus Surface")
         self.cameraTabWidget.currentChanged.connect(lambda: self.resizeCurrentTab(self.cameraTabWidget))
         self.resizeCurrentTab(self.cameraTabWidget)
 
