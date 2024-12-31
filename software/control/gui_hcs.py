@@ -117,7 +117,6 @@ class MovementUpdater(QObject):
             # In here, send all the signals that must be sent once per stop of movement.  AKA once per arriving at a
             # new position for a while.
             self.sent_after_stopped = True
-
             self.position_after_move.emit(pos.x_mm, pos.y_mm)
         else:
             self.sent_after_stopped = False
@@ -417,7 +416,7 @@ class HighContentScreeningGui(QMainWindow):
         else:
             self.wellSelectionWidget = widgets.Well1536SelectionWidget()
         self.scanCoordinates.add_well_selector(self.wellSelectionWidget)
-        self.focusSurfaceWidget = widgets.FocusSurfaceWidget(self.stage, self.navigationViewer, self.scanCoordinates, core.SurfaceFitter())
+        self.focusMapWidget = widgets.FocusMapWidget(self.stage, self.navigationViewer, self.scanCoordinates, core.FocusMap())
 
         if SUPPORT_LASER_AUTOFOCUS:
             if FOCUS_CAMERA_TYPE == "Toupcam":
@@ -446,8 +445,8 @@ class HighContentScreeningGui(QMainWindow):
         else:
             self.setupImageDisplayTabs()
 
-        self.flexibleMultiPointWidget = widgets.FlexibleMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.focusSurfaceWidget)
-        self.wellplateMultiPointWidget = widgets.WellplateMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.focusSurfaceWidget, self.napariMosaicDisplayWidget)
+        self.flexibleMultiPointWidget = widgets.FlexibleMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.focusMapWidget)
+        self.wellplateMultiPointWidget = widgets.WellplateMultiPointWidget(self.stage, self.navigationViewer, self.multipointController, self.objectiveStore, self.configurationManager, self.scanCoordinates, self.focusMapWidget, self.napariMosaicDisplayWidget)
         self.sampleSettingsWidget = widgets.SampleSettingsWidget(self.objectivesWidget, self.wellplateFormatWidget)
 
         if ENABLE_TRACKING:
@@ -546,7 +545,7 @@ class HighContentScreeningGui(QMainWindow):
         self.cameraTabWidget.addTab(self.autofocusWidget, "Contrast AF")
         if SUPPORT_LASER_AUTOFOCUS:
             self.cameraTabWidget.addTab(self.laserAutofocusControlWidget, "Laser AF")
-        self.cameraTabWidget.addTab(self.focusSurfaceWidget, "Focus Surface")
+        self.cameraTabWidget.addTab(self.focusMapWidget, "Focus Map")
         self.cameraTabWidget.currentChanged.connect(lambda: self.resizeCurrentTab(self.cameraTabWidget))
         self.resizeCurrentTab(self.cameraTabWidget)
 
