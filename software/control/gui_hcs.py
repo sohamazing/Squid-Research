@@ -92,7 +92,7 @@ if SUPPORT_LASER_AUTOFOCUS:
 SINGLE_WINDOW = True # set to False if use separate windows for display and control
 
 class MovementUpdater(QObject):
-    position_after_move = Signal(squid.abc.Pos)
+    position_after_move = Signal(float, float)
     position = Signal(squid.abc.Pos)
 
     def __init__(self, stage: squid.abc.AbstractStage, movement_threshhold_mm=0.0001, *args, **kwargs):
@@ -702,7 +702,7 @@ class HighContentScreeningGui(QMainWindow):
         self.wellplateFormatWidget.signalWellplateSettings.connect(self.wellSelectionWidget.onWellplateChanged)
         self.wellplateFormatWidget.signalWellplateSettings.connect(lambda format_, *args: self.onWellplateChanged(format_))
 
-        self.wellSelectionWidget.signal_wellSelectedPos.connect(lambda well_x, well_y: self.stage.move_x_to(well_x) and self.stage.move_y_to(well_y))
+        self.wellSelectionWidget.signal_wellSelectedPos.connect(self.move_to_mm)
         if ENABLE_WELLPLATE_MULTIPOINT:
             self.wellSelectionWidget.signal_wellSelected.connect(self.wellplateMultiPointWidget.update_well_coordinates)
             self.objectivesWidget.signal_objective_changed.connect(self.wellplateMultiPointWidget.update_coordinates)
@@ -730,6 +730,7 @@ class HighContentScreeningGui(QMainWindow):
         self.movement_update_timer = QTimer()
         self.movement_update_timer.setInterval(100)
         self.movement_update_timer.timeout.connect(self.movement_updater.do_update)
+        self.movement_update_timer.start()
 
     def makeNapariConnections(self):
         """Initialize all Napari connections in one place"""
@@ -942,17 +943,13 @@ class HighContentScreeningGui(QMainWindow):
 
     def connectSlidePositionController(self):
         self.slidePositionController.signal_slide_loading_position_reached.connect(self.navigationWidget.slot_slide_loading_position_reached)
-        if ENABLE_FLEXIBLE_MULTIPOINT:
-            self.slidePositionController.signal_slide_loading_position_reached.connect(self.flexibleMultiPointWidget.disable_the_start_aquisition_button)
-        if ENABLE_WELLPLATE_MULTIPOINT:
-            self.slidePositionController.signal_slide_loading_position_reached.connect(self.wellplateMultiPointWidget.disable_the_start_aquisition_button)
-
         self.slidePositionController.signal_slide_scanning_position_reached.connect(self.navigationWidget.slot_slide_scanning_position_reached)
         if ENABLE_FLEXIBLE_MULTIPOINT:
+            self.slidePositionController.signal_slide_loading_position_reached.connect(self.flexibleMultiPointWidget.disable_the_start_aquisition_button)
             self.slidePositionController.signal_slide_scanning_position_reached.connect(self.flexibleMultiPointWidget.enable_the_start_aquisition_button)
         if ENABLE_WELLPLATE_MULTIPOINT:
+            self.slidePositionController.signal_slide_loading_position_reached.connect(self.wellplateMultiPointWidget.disable_the_start_aquisition_button)
             self.slidePositionController.signal_slide_scanning_position_reached.connect(self.wellplateMultiPointWidget.enable_the_start_aquisition_button)
-
         self.slidePositionController.signal_clear_slide.connect(self.navigationViewer.clear_slide)
 
     def replaceWellSelectionWidget(self, new_widget):
@@ -966,7 +963,7 @@ class HighContentScreeningGui(QMainWindow):
             self.dock_wellSelection.addWidget(self.wellSelectionWidget)
 
     def connectWellSelectionWidget(self):
-        self.wellSelectionWidget.signal_wellSelectedPos.connect(self.navigationController.move_to)
+        self.wellSelectionWidget.signal_wellSelectedPos.connect(self.move_to_mm)
         self.wellplateFormatWidget.signalWellplateSettings.connect(self.wellSelectionWidget.onWellplateChanged)
         if ENABLE_WELLPLATE_MULTIPOINT:
             self.wellSelectionWidget.signal_wellSelected.connect(self.wellplateMultiPointWidget.update_well_coordinates)
@@ -1072,10 +1069,13 @@ class HighContentScreeningGui(QMainWindow):
     def move_from_click_mm(self, x_mm, y_mm):
         if self.navigationWidget.get_click_to_move_enabled():
             self.log.debug(f"Click to move enabled, moving to {x_mm=}, {y_mm=}")
-            self.stage.move_x_to(x_mm)
-            self.stage.move_y_to(y_mm)
+            self.move_to_mm(x_mm, y_mm)
         else:
             self.log.debug(f"Click to move disabled, ignoring click request for {x_mm=}, {y_mm=}")
+
+    def move_to_mm(self, x_mm, y_mm):
+        self.stage.move_x_to(x_mm)
+        self.stage.move_y_to(y_mm)
 
     def closeEvent(self, event):
         try:

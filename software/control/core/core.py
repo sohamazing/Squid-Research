@@ -3024,14 +3024,12 @@ class NavigationViewer(QFrame):
         self.update_display_properties(sample)
         self.draw_current_fov(self.x_mm, self.y_mm)
 
-    def draw_fov_current_location(self, pos: squid.abc.Pos):
-        if not pos:
+    def draw_fov_current_location(self, x_mm, y_mm):
+        if x_mm is None and y_mm is None:
             if self.x_mm is None and self.y_mm is None:
                 return
             self.draw_current_fov(self.x_mm, self.y_mm)
         else:
-            x_mm = pos.x_mm
-            y_mm = pos.y_mm
             self.draw_current_fov(x_mm, y_mm)
             self.x_mm = x_mm
             self.y_mm = y_mm
