@@ -95,7 +95,7 @@ SINGLE_WINDOW = True  # set to False if use separate windows for display and con
 
 
 class MovementUpdater(QObject):
-    position_after_move = Signal(squid.abc.Pos)
+    position_after_move = Signal(float, float)
     position = Signal(squid.abc.Pos)
 
     def __init__(self, stage: squid.abc.AbstractStage, movement_threshhold_mm=0.0001, *args, **kwargs):
@@ -1208,30 +1208,14 @@ class HighContentScreeningGui(QMainWindow):
         self.navigationWidget.replace_slide_controller(self.slidePositionController)
 
     def connectSlidePositionController(self):
-        self.slidePositionController.signal_slide_loading_position_reached.connect(
-            self.navigationWidget.slot_slide_loading_position_reached
-        )
+        self.slidePositionController.signal_slide_loading_position_reached.connect(self.navigationWidget.slot_slide_loading_position_reached)
+        self.slidePositionController.signal_slide_scanning_position_reached.connect(self.navigationWidget.slot_slide_scanning_position_reached)
         if ENABLE_FLEXIBLE_MULTIPOINT:
-            self.slidePositionController.signal_slide_loading_position_reached.connect(
-                self.flexibleMultiPointWidget.disable_the_start_aquisition_button
-            )
+            self.slidePositionController.signal_slide_loading_position_reached.connect(self.flexibleMultiPointWidget.disable_the_start_aquisition_button)
+            self.slidePositionController.signal_slide_scanning_position_reached.connect(self.flexibleMultiPointWidget.enable_the_start_aquisition_button)
         if ENABLE_WELLPLATE_MULTIPOINT:
-            self.slidePositionController.signal_slide_loading_position_reached.connect(
-                self.wellplateMultiPointWidget.disable_the_start_aquisition_button
-            )
-
-        self.slidePositionController.signal_slide_scanning_position_reached.connect(
-            self.navigationWidget.slot_slide_scanning_position_reached
-        )
-        if ENABLE_FLEXIBLE_MULTIPOINT:
-            self.slidePositionController.signal_slide_scanning_position_reached.connect(
-                self.flexibleMultiPointWidget.enable_the_start_aquisition_button
-            )
-        if ENABLE_WELLPLATE_MULTIPOINT:
-            self.slidePositionController.signal_slide_scanning_position_reached.connect(
-                self.wellplateMultiPointWidget.enable_the_start_aquisition_button
-            )
-
+            self.slidePositionController.signal_slide_loading_position_reached.connect(self.wellplateMultiPointWidget.disable_the_start_aquisition_button)
+            self.slidePositionController.signal_slide_scanning_position_reached.connect(self.wellplateMultiPointWidget.enable_the_start_aquisition_button)
         self.slidePositionController.signal_clear_slide.connect(self.navigationViewer.clear_slide)
 
     def replaceWellSelectionWidget(self, new_widget):
