@@ -161,15 +161,14 @@ class HighContentScreeningGui(QMainWindow):
 
         self.microscope = control.microscope.Microscope(self.stage, self, is_simulation=is_simulation)
 
-        # TODO(imo): Why is moving to the cached position after boot hidden behind homing?
-        if HOMING_ENABLED_X and HOMING_ENABLED_Y and HOMING_ENABLED_Z:
-            if cached_pos := squid.stage.utils.get_cached_position():
-                self.stage.move_x_to(cached_pos.x_mm)
-                self.stage.move_y_to(cached_pos.y_mm)
-                self.stage.move_z_to(cached_pos.z_mm)
+        if cached_pos := squid.stage.utils.get_cached_position():
+            self.stage.move_x_to(cached_pos.x_mm)
+            self.stage.move_y_to(cached_pos.y_mm)
+            self.stage.move_z_to(cached_pos.z_mm)
 
-            if ENABLE_WELLPLATE_MULTIPOINT:
-                self.wellplateMultiPointWidget.init_z()
+        if ENABLE_WELLPLATE_MULTIPOINT:
+            self.wellplateMultiPointWidget.init_z()
+        if ENABLE_FLEXIBLE_MULTIPOINT:
             self.flexibleMultiPointWidget.init_z()
 
         # Create the menu bar
