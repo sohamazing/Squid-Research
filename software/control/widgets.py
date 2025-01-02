@@ -3730,7 +3730,7 @@ class WellplateMultiPointWidget(QFrame):
             self.scanCoordinates.clear_regions()
 
     def update_live_coordinates(self, pos):
-        if hasattr(self.parent, 'recordTabWidget') and self.parent.recordTabWidget.currentWidget() != self:
+        if hasattr(self.parent, "recordTabWidget") and self.parent.recordTabWidget.currentWidget() != self:
             return
         scan_size_mm = self.entry_scan_size.value()
         overlap_percent = self.entry_overlap.value()
