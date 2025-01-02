@@ -95,7 +95,7 @@ SINGLE_WINDOW = True  # set to False if use separate windows for display and con
 
 
 class MovementUpdater(QObject):
-    position_after_move = Signal(float, float)
+    position_after_move = Signal(squid.abc.Pos)
     position = Signal(squid.abc.Pos)
 
     def __init__(self, stage: squid.abc.AbstractStage, movement_threshhold_mm=0.0001, *args, **kwargs):
@@ -849,8 +849,8 @@ class HighContentScreeningGui(QMainWindow):
         if ENABLE_FLEXIBLE_MULTIPOINT:
             self.objectivesWidget.signal_objective_changed.connect(self.flexibleMultiPointWidget.update_fov_positions)
         # TODO(imo): Fix position updates after removal of navigation controller
-        self.movement_updater.position_after_move.connect(self.navigationViewer.draw_fov_current_location)
-        if WELLPLATE_FORMAT == "glass slide":
+        self.movement_updater.position.connect(self.navigationViewer.draw_fov_current_position)
+        if WELLPLATE_FORMAT == 'glass slide':
             # TODO(imo): This well place logic is duplicated below in onWellPlateChanged.  We should change it to only exist in 1 location.
             self.movement_updater.sent_after_stopped.connect(self.wellplateMultiPointWidget.set_live_scan_coordinates)
             self.is_live_scan_grid_on = True
