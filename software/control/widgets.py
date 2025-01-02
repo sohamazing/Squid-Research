@@ -3729,7 +3729,7 @@ class WellplateMultiPointWidget(QFrame):
         elif self.scanCoordinates.has_regions():
             self.scanCoordinates.clear_regions()
 
-    def update_live_coordinates(self, pos):
+    def update_live_coordinates(self, pos: squid.abc.Pos):
         if hasattr(self.parent, "recordTabWidget") and self.parent.recordTabWidget.currentWidget() != self:
             return
         scan_size_mm = self.entry_scan_size.value()
