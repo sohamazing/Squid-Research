@@ -3377,15 +3377,14 @@ class NavigationViewer(QFrame):
         self.update_display_properties(sample)
         self.draw_current_fov(self.x_mm, self.y_mm)
 
-    def draw_fov_current_position(self, pos):
-        if pos.x_mm is None or pos.y_mm is None:
+    def draw_fov_current_position(self, pos: squid.abc.Pos):
+        if not pos:
             if self.x_mm is None or self.y_mm is None:
                 return
-            self.draw_current_fov(self.x_mm, self.y_mm)
         else:
-            self.draw_current_fov(pos.x_mm, pos.y_mm)
             self.x_mm = pos.x_mm
             self.y_mm = pos.y_mm
+        self.draw_current_fov(self.x_mm, self.y_mm)
 
     def get_FOV_pixel_coordinates(self, x_mm, y_mm):
         if self.sample == "glass slide":

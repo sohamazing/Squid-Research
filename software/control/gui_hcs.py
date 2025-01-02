@@ -850,7 +850,7 @@ class HighContentScreeningGui(QMainWindow):
             self.objectivesWidget.signal_objective_changed.connect(self.flexibleMultiPointWidget.update_fov_positions)
         # TODO(imo): Fix position updates after removal of navigation controller
         self.movement_updater.position.connect(self.navigationViewer.draw_fov_current_position)
-        if WELLPLATE_FORMAT == 'glass slide':
+        if WELLPLATE_FORMAT == "glass slide":
             # TODO(imo): This well place logic is duplicated below in onWellPlateChanged.  We should change it to only exist in 1 location.
             self.movement_updater.sent_after_stopped.connect(self.wellplateMultiPointWidget.set_live_scan_coordinates)
             self.is_live_scan_grid_on = True
@@ -1207,14 +1207,26 @@ class HighContentScreeningGui(QMainWindow):
         self.navigationWidget.replace_slide_controller(self.slidePositionController)
 
     def connectSlidePositionController(self):
-        self.slidePositionController.signal_slide_loading_position_reached.connect(self.navigationWidget.slot_slide_loading_position_reached)
-        self.slidePositionController.signal_slide_scanning_position_reached.connect(self.navigationWidget.slot_slide_scanning_position_reached)
+        self.slidePositionController.signal_slide_loading_position_reached.connect(
+            self.navigationWidget.slot_slide_loading_position_reached
+        )
+        self.slidePositionController.signal_slide_scanning_position_reached.connect(
+            self.navigationWidget.slot_slide_scanning_position_reached
+        )
         if ENABLE_FLEXIBLE_MULTIPOINT:
-            self.slidePositionController.signal_slide_loading_position_reached.connect(self.flexibleMultiPointWidget.disable_the_start_aquisition_button)
-            self.slidePositionController.signal_slide_scanning_position_reached.connect(self.flexibleMultiPointWidget.enable_the_start_aquisition_button)
+            self.slidePositionController.signal_slide_loading_position_reached.connect(
+                self.flexibleMultiPointWidget.disable_the_start_aquisition_button
+            )
+            self.slidePositionController.signal_slide_scanning_position_reached.connect(
+                self.flexibleMultiPointWidget.enable_the_start_aquisition_button
+            )
         if ENABLE_WELLPLATE_MULTIPOINT:
-            self.slidePositionController.signal_slide_loading_position_reached.connect(self.wellplateMultiPointWidget.disable_the_start_aquisition_button)
-            self.slidePositionController.signal_slide_scanning_position_reached.connect(self.wellplateMultiPointWidget.enable_the_start_aquisition_button)
+            self.slidePositionController.signal_slide_loading_position_reached.connect(
+                self.wellplateMultiPointWidget.disable_the_start_aquisition_button
+            )
+            self.slidePositionController.signal_slide_scanning_position_reached.connect(
+                self.wellplateMultiPointWidget.enable_the_start_aquisition_button
+            )
         self.slidePositionController.signal_clear_slide.connect(self.navigationViewer.clear_slide)
 
     def replaceWellSelectionWidget(self, new_widget):
