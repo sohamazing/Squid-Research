@@ -4330,7 +4330,12 @@ class StitcherWidget(QFrame):
         try:
             napari_viewer = napari.Viewer()
             if ".ome.zarr" in self.output_path:
-                napari_viewer.open(self.output_path, plugin="napari-ome-zarr")
+                napari_viewer.open(
+                    self.output_path,
+                    plugin='napari-ome-zarr',
+                    chunks=(1, 1, 1, 2048, 2048),  # Smaller than (1, 1, 1, 4096, 4096) for better interactive viewing
+                    downscale=True
+                )
             else:
                 napari_viewer.open(self.output_path)
 
@@ -4347,6 +4352,9 @@ class StitcherWidget(QFrame):
 
                 min_val, max_val = self.contrastManager.get_limits(layer_name)
                 layer.contrast_limits = (min_val, max_val)
+
+                layer.multiscale = True
+                layer.downsample = True
 
         except Exception as e:
             QMessageBox.critical(self, "Error Opening in Napari", str(e))
@@ -4368,8 +4376,16 @@ class StitcherWidget(QFrame):
         self.statusLabel.setVisible(False)
 
     def closeEvent(self, event):
-        """Clean up resources when closing"""
+        # Stop stitching process if running
         self.stop_stitching()
+        # Clean up queues
+        for queue in [self.progress_queue, self.status_queue, self.complete_queue]:
+            if queue:
+                while not queue.empty():
+                    queue.get_nowait()
+                queue.close()
+                queue.join_thread()
+        # Stop queue timer
         if hasattr(self, 'queue_timer'):
             self.queue_timer.stop()
         super().closeEvent(event)
