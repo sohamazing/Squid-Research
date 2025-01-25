@@ -4095,13 +4095,15 @@ class FocusMapWidget(QFrame):
 
 
 class StitcherWidget(QFrame):
-    def __init__(self, configurationManager, contrastManager, *args, **kwargs):
+    def __init__(self, configurationManager, contrastManager, acquisitionManagerWidget, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.configurationManager = configurationManager
         self.contrastManager = contrastManager
+        self.acquisitionManagerWidget = acquisitionManagerWidget
 
         # Process management
         self.stitcher_process = None
+        self.acquisition_path = ""
         self.progress_queue = Queue()
         self.status_queue = Queue()
         self.complete_queue = Queue()
@@ -4121,7 +4123,7 @@ class StitcherWidget(QFrame):
         try:
             while True:
                 msg_type, data = self.progress_queue.get_nowait()
-                if msg_type == 'progress':
+                if msg_type == "progress":
                     current, total = data
                     self.progressBar.setRange(0, total)
                     self.progressBar.setValue(current)
@@ -4133,22 +4135,21 @@ class StitcherWidget(QFrame):
         try:
             while True:
                 msg_type, data = self.status_queue.get_nowait()
-                if msg_type == 'status':
+                if msg_type == "status":
                     status, is_saving = data
                     self.statusLabel.setText(f"Status: {status}")
                     if is_saving:
                         self.progressBar.setRange(0, 0)  # Indeterminate mode
-                elif msg_type == 'error':
+                elif msg_type == "error":
                     QMessageBox.critical(self, "Error", str(data))
                     self.stop_stitching()
         except Empty:
             pass
 
-
         # Check completion updates
         try:
             msg_type, data = self.complete_queue.get_nowait()
-            if msg_type == 'complete':
+            if msg_type == "complete":
                 output_path, dtype = data
                 self.finishedSaving(output_path, dtype)
         except Empty:
@@ -4244,14 +4245,14 @@ class StitcherWidget(QFrame):
         """Start the stitching process with the given parameters"""
         # Reset state
         self.stop_event = Event()
-
+        self.acquisition_path = params.input_folder
         try:
             self.stitcher_process = StitcherProcess(
                 params=params,
                 progress_queue=self.progress_queue,
                 status_queue=self.status_queue,
                 complete_queue=self.complete_queue,
-                stop_event=self.stop_event
+                stop_event=self.stop_event,
             )
             self.stitcher_process.start()
 
@@ -4302,6 +4303,7 @@ class StitcherWidget(QFrame):
 
         # Store output path
         self.output_path = output_path
+        self.acquisitionManagerWidget.add_acquisition(self.acquisition_path)
 
     def extractWavelength(self, name):
         parts = name.split()
@@ -4332,9 +4334,9 @@ class StitcherWidget(QFrame):
             if ".ome.zarr" in self.output_path:
                 napari_viewer.open(
                     self.output_path,
-                    plugin='napari-ome-zarr',
+                    plugin="napari-ome-zarr",
                     chunks=(1, 1, 1, 2048, 2048),  # Smaller than (1, 1, 1, 4096, 4096) for better interactive viewing
-                    downscale=True
+                    downscale=True,
                 )
             else:
                 napari_viewer.open(self.output_path)
@@ -4386,7 +4388,7 @@ class StitcherWidget(QFrame):
                 queue.close()
                 queue.join_thread()
         # Stop queue timer
-        if hasattr(self, 'queue_timer'):
+        if hasattr(self, "queue_timer"):
             self.queue_timer.stop()
         super().closeEvent(event)
 
@@ -5512,6 +5514,296 @@ class NapariMosaicDisplayWidget(QWidget):
     def activate(self):
         print("ACTIVATING NAPARI MOSAIC WIDGET")
         self.viewer.window.activate()
+
+
+class NapariAcquisitionViewerWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.viewer = None  # napari.Viewer(show=False)
+        self.current_path = None  # Track current file to prevent reloading
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Create minimal layout for napari viewer."""
+        self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)  # No margins
+        self.setLayout(self.layout)
+
+    def show_acquisition(self, path):
+        """Display an OME-ZARR acquisition."""
+        # Skip if same file
+        if path == self.current_path:
+            return
+
+        self.current_path = path
+        self.close_viewer()
+
+        try:
+            # Initialize viewer
+            self.viewer = napari.Viewer()
+
+            # Show necessary controls
+            self.viewer.window.qt_viewer.dockLayerControls.setVisible(True)
+            self.viewer.window.qt_viewer.dockLayerList.setVisible(True)
+
+            # Configure window parenting
+            qt_window = self.viewer.window._qt_window
+            qt_window.setParent(self)
+            self.layout.addWidget(qt_window)
+
+            # Hide unused UI elements
+            if hasattr(self.viewer.window, "_status_bar"):
+                self.viewer.window._status_bar.hide()
+            if hasattr(self.viewer.window._qt_viewer, "layerButtons"):
+                self.viewer.window._qt_viewer.layerButtons.hide()
+
+            # Load the data
+            self.viewer.open(path, plugin="napari-ome-zarr", chunks=(1, 1, 1, 2048, 2048), downscale=True)
+
+            # Configure each layer
+            for layer in self.viewer.layers:
+                self.configure_layer(layer)
+
+        except Exception as e:
+            print(f"Error showing acquisition: {e}")
+            self.close_viewer()
+            self.current_path = None
+
+    def configure_layer(self, layer):
+        """Configure display settings for a layer."""
+        # Get channel info
+        wavelength = self.extract_wavelength(layer.name)
+        channel_info = CHANNEL_COLORS_MAP.get(wavelength, {"hex": 0xFFFFFF, "name": "gray"})
+
+        # Set colormap
+        if channel_info["name"] in AVAILABLE_COLORMAPS:
+            layer.colormap = AVAILABLE_COLORMAPS[channel_info["name"]]
+        else:
+            layer.colormap = self.generate_colormap(channel_info)
+
+        # Set data-type appropriate contrast limits
+        if layer.dtype is not None:
+            if np.issubdtype(layer.dtype, np.integer):
+                info = np.iinfo(layer.dtype)
+                layer.contrast_limits = (info.min, info.max)
+            elif np.issubdtype(layer.dtype, np.floating):
+                layer.contrast_limits = (0.0, 1.0)
+
+    def extract_wavelength(self, name):
+        """Extract channel wavelength from layer name."""
+        if not name:
+            return None
+
+        # Check for wavelength after "Fluorescence"
+        parts = name.split()
+        if "Fluorescence" in parts:
+            idx = parts.index("Fluorescence") + 1
+            if idx < len(parts):
+                return parts[idx].split()[0]
+
+        # Check for RGB channels
+        for color in ["R", "G", "B"]:
+            if color in parts or f"full_{color}" in parts:
+                return color
+
+        return None
+
+    def generate_colormap(self, channel_info):
+        """Create custom colormap for channel."""
+        # Convert hex to RGB
+        c1 = (
+            ((channel_info["hex"] >> 16) & 0xFF) / 255,
+            ((channel_info["hex"] >> 8) & 0xFF) / 255,
+            (channel_info["hex"] & 0xFF) / 255,
+        )
+
+        # Black to color gradient
+        return Colormap(colors=[(0, 0, 0), c1], controls=[0, 1], name=channel_info["name"])
+
+    def close_viewer(self):
+        """Clean up viewer resources."""
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None
+
+            # Clear layout
+            while self.layout.count():
+                item = self.layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+
+    def closeEvent(self, event):
+        """Handle widget close."""
+        self.close_viewer()
+        super().closeEvent(event)
+
+    def activate(self):
+        """Activate the viewer window."""
+        if self.viewer:
+            print("ACTIVATING NAPARI ACQUISITION VIEWER WIDGET")
+            self.viewer.window.activate()
+
+
+class AcquisitionManagerWidget(QWidget):
+    """Widget for managing and viewing cached acquisition data."""
+
+    signal_view_acquisition = Signal(str)  # Emits zarr path to view
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.cache_dir = "cache"
+        os.makedirs(self.cache_dir, exist_ok=True)
+
+        self.cache_file = os.path.join(self.cache_dir, "acquisitions.json")
+        self.acquisitions = {}  # original path -> stitched path
+        self.timepoints = []
+        self.regions = []
+        self.current_stitched_path = None
+        self.load_cache()
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Initialize UI components."""
+        layout = QVBoxLayout()
+
+        # Grid layout for all dropdowns
+        grid = QGridLayout()
+
+        # Acquisition selection
+        grid.addWidget(QLabel("Acquisition"), 0, 0)
+        self.acquisition_combo = QComboBox()
+        self.acquisition_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.acquisition_combo.currentIndexChanged.connect(self.on_acquisition_changed)
+        grid.addWidget(self.acquisition_combo, 0, 1, 1, 4)  # Span 4 columns
+
+        # Timepoint selection
+        grid.addWidget(QLabel("Timepoint"), 1, 0)
+        self.timepoint_combo = QComboBox()
+        self.timepoint_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.timepoint_combo.currentIndexChanged.connect(self.selection_changed)
+        grid.addWidget(self.timepoint_combo, 1, 1)
+
+        # Add fixed horizontal spacer
+        grid.addItem(QSpacerItem(40, 20, QSizePolicy.Fixed, QSizePolicy.Minimum), 1, 2)
+
+        # Region selection
+        grid.addWidget(QLabel("Region"), 1, 3)
+        self.region_combo = QComboBox()
+        self.region_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.region_combo.currentIndexChanged.connect(self.selection_changed)
+        grid.addWidget(self.region_combo, 1, 4)
+
+        layout.addLayout(grid)
+        self.setLayout(layout)
+
+        # Initially disable navigation controls
+        self.set_navigation_enabled(False)
+        self.update_acquisition_list()
+
+    def set_navigation_enabled(self, enabled):
+        """Enable/disable navigation controls."""
+        self.timepoint_combo.setEnabled(enabled)
+        self.region_combo.setEnabled(enabled)
+
+    def parse_acquisition_structure(self, stitched_path):
+        """Parse timepoints and regions from stitched directory structure."""
+        self.timepoints = []
+        self.regions = []
+
+        if not os.path.exists(stitched_path):
+            return
+
+        for item in sorted(os.listdir(stitched_path)):
+            if item.endswith("_stitched"):
+                timepoint = item.split("_")[0]  # Extract timepoint number
+                timepoint_path = os.path.join(stitched_path, item)
+
+                if os.path.isdir(timepoint_path):
+                    self.timepoints.append(timepoint)
+
+                    if not self.regions:
+                        for region_file in sorted(os.listdir(timepoint_path)):
+                            if region_file.endswith("_stitched.ome.zarr"):
+                                region = region_file.split("_")[0]
+                                self.regions.append(region)
+
+    def update_navigation_controls(self):
+        """Update dropdown menus with available timepoints and regions."""
+        self.timepoint_combo.clear()
+        self.timepoint_combo.addItems(self.timepoints)
+
+        self.region_combo.clear()
+        self.region_combo.addItems(self.regions)
+
+        self.set_navigation_enabled(bool(self.timepoints and self.regions))
+
+    def get_current_zarr_path(self):
+        """Get path to currently selected timepoint/region zarr."""
+        if not self.current_stitched_path or not self.timepoints or not self.regions:
+            return None
+
+        timepoint = self.timepoint_combo.currentText()
+        region = self.region_combo.currentText()
+
+        return os.path.join(self.current_stitched_path, f"{timepoint}_stitched", f"{region}_stitched.ome.zarr")
+
+    def selection_changed(self):
+        """Handle changes in timepoint/region selection."""
+        if zarr_path := self.get_current_zarr_path():
+            self.signal_view_acquisition.emit(zarr_path)
+
+    def on_acquisition_changed(self, index):
+        """Handle acquisition selection changes."""
+        if index >= 0:
+            orig_path = self.acquisition_combo.currentText()
+            stitched_path = self.acquisitions[orig_path]
+
+            self.current_stitched_path = stitched_path
+            self.parse_acquisition_structure(stitched_path)
+            self.update_navigation_controls()
+
+            if self.timepoints and self.regions:
+                self.selection_changed()
+        else:
+            self.current_stitched_path = None
+            self.set_navigation_enabled(False)
+
+    def add_acquisition(self, orig_path, stitched_path=None):
+        """Add new acquisition path after stitching completes."""
+        if stitched_path is None:
+            pattern = f"{orig_path}_stitched_*"
+            matches = glob.glob(pattern)
+            if matches:
+                stitched_path = matches[-1]
+            else:
+                return
+
+        self.acquisitions[orig_path] = stitched_path
+        self.save_cache()
+        self.update_acquisition_list()
+
+    def update_acquisition_list(self):
+        """Refresh acquisitions dropdown."""
+        self.acquisition_combo.clear()
+        for orig_path in sorted(self.acquisitions.keys()):
+            self.acquisition_combo.addItem(orig_path)
+
+    def load_cache(self):
+        """Load cached acquisition paths."""
+        try:
+            if os.path.exists(self.cache_file):
+                with open(self.cache_file, "r") as f:
+                    self.acquisitions = json.load(f)
+        except Exception as e:
+            print(f"Error loading acquisition cache: {e}")
+
+    def save_cache(self):
+        """Save acquisition paths to cache."""
+        try:
+            with open(self.cache_file, "w") as f:
+                json.dump(self.acquisitions, f)
+        except Exception as e:
+            print(f"Error saving acquisition cache: {e}")
 
 
 class TrackingControllerWidget(QFrame):

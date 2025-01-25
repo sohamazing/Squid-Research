@@ -520,7 +520,7 @@ class HighContentScreeningGui(QMainWindow):
 
         if USE_SQUID_FILTERWHEEL:
             self.squidFilterWidget = widgets.SquidFilterWidget(self)
-
+        self.acquisitionManagerWidget = widgets.AcquisitionManagerWidget(self)
         self.recordingControlWidget = widgets.RecordingWidget(self.streamHandler, self.imageSaver)
         self.wellplateFormatWidget = widgets.WellplateFormatWidget(
             self.stage, self.navigationViewer, self.streamHandler, self.liveController
@@ -608,7 +608,9 @@ class HighContentScreeningGui(QMainWindow):
                 show_configurations=TRACKING_SHOW_MICROSCOPE_CONFIGURATIONS,
             )
         if ENABLE_STITCHER:
-            self.stitcherWidget = widgets.StitcherWidget(self.configurationManager, self.contrastManager)
+            self.stitcherWidget = widgets.StitcherWidget(
+                self.configurationManager, self.contrastManager, self.acquisitionManagerWidget
+            )
 
         self.recordTabWidget = QTabWidget()
         self.setupRecordTabWidget()
@@ -655,6 +657,10 @@ class HighContentScreeningGui(QMainWindow):
                 )
                 self.imageDisplayTabs.addTab(self.napariMosaicDisplayWidget, "Mosaic View")
 
+            if ENABLE_STITCHER and USE_NAPARI_ACQUISITION_VIEWER:
+                self.napariAcquisitionViewerWidget = widgets.NapariAcquisitionViewerWidget()
+                self.imageDisplayTabs.addTab(self.napariAcquisitionViewerWidget, "Acquisition Viewer")
+
         if SUPPORT_LASER_AUTOFOCUS:
             dock_laserfocus_image_display = dock.Dock("Focus Camera Image Display", autoOrientation=False)
             dock_laserfocus_image_display.showTitleBar()
@@ -698,6 +704,10 @@ class HighContentScreeningGui(QMainWindow):
             self.recordTabWidget.addTab(self.trackingControlWidget, "Tracking")
         if ENABLE_RECORDING:
             self.recordTabWidget.addTab(self.recordingControlWidget, "Simple Recording")
+        if not self.live_only_mode and ENABLE_STITCHER and USE_NAPARI_ACQUISITION_VIEWER:
+            self.recordTabWidget.addTab(self.acquisitionManagerWidget, "Acquisition Manager")
+            # Connect view signal to viewer
+            self.acquisitionManagerWidget.signal_view_acquisition.connect(self.showAcquisitionViewerTab)
         self.recordTabWidget.currentChanged.connect(lambda: self.resizeCurrentTab(self.recordTabWidget))
         self.resizeCurrentTab(self.recordTabWidget)
 
@@ -1119,6 +1129,13 @@ class HighContentScreeningGui(QMainWindow):
             dialog = widgets.LedMatrixSettingsDialog(self.liveController.led_array)
             dialog.exec_()
 
+    def showAcquisitionViewerTab(self, path):
+        """Show an acquisition in the viewer tab."""
+        # Show the data
+        self.napariAcquisitionViewerWidget.show_acquisition(path)
+        # Switch to viewer tab
+        self.imageDisplayTabs.setCurrentIndex(self.imageDisplayTabs.indexOf(self.napariAcquisitionViewerWidget))
+
     def onTabChanged(self, index):
         is_flexible_acquisition = (
             (index == self.recordTabWidget.indexOf(self.flexibleMultiPointWidget))
@@ -1145,10 +1162,13 @@ class HighContentScreeningGui(QMainWindow):
             self.flexibleMultiPointWidget.update_fov_positions()
 
         self.toggleWellSelector(is_wellplate_acquisition and self.wellSelectionWidget.format != "glass slide")
-        acquisitionWidget = self.recordTabWidget.widget(index)
-        if ENABLE_STITCHER:
-            self.toggleStitcherWidget(acquisitionWidget.checkbox_stitchOutput.isChecked())
-        acquisitionWidget.emit_selected_channels()
+        if is_flexible_acquisition or is_wellplate_acquisition:
+            acquisitionWidget = self.recordTabWidget.widget(index)
+            if ENABLE_STITCHER:
+                self.toggleStitcherWidget(acquisitionWidget.checkbox_stitchOutput.isChecked())
+            acquisitionWidget.emit_selected_channels()
+        else:
+            self.toggleStitcherWidget(False)
 
     def resizeCurrentTab(self, tabWidget):
         current_widget = tabWidget.currentWidget()
@@ -1323,14 +1343,22 @@ class HighContentScreeningGui(QMainWindow):
             # Create stitching parameters from current settings
             params = StitchingParameters(
                 input_folder=acquisition_path,
-                output_format='.' + self.stitcherWidget.outputFormatCombo.currentText().lower().replace('-', '.'),
+                output_format="." + self.stitcherWidget.outputFormatCombo.currentText().lower().replace("-", "."),
                 apply_flatfield=self.stitcherWidget.applyFlatfieldCheck.isChecked(),
                 use_registration=self.stitcherWidget.useRegistrationCheck.isChecked(),
-                registration_channel=self.stitcherWidget.registrationChannelCombo.currentText() if self.stitcherWidget.useRegistrationCheck.isChecked() else '',
-                registration_z_level=self.stitcherWidget.registrationZCombo.value() if self.stitcherWidget.useRegistrationCheck.isChecked() else 0,
-                scan_pattern='Unidirectional',
+                registration_channel=(
+                    self.stitcherWidget.registrationChannelCombo.currentText()
+                    if self.stitcherWidget.useRegistrationCheck.isChecked()
+                    else ""
+                ),
+                registration_z_level=(
+                    self.stitcherWidget.registrationZCombo.value()
+                    if self.stitcherWidget.useRegistrationCheck.isChecked()
+                    else 0
+                ),
+                scan_pattern="Unidirectional",
                 merge_timepoints=False,  # Could be made configurable in the UI
-                merge_hcs_regions=False  # Could be made configurable in the UI
+                merge_hcs_regions=False,  # Could be made configurable in the UI
             )
 
             # Start the stitching process
