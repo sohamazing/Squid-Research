@@ -5519,7 +5519,7 @@ class NapariMosaicDisplayWidget(QWidget):
 class NapariAcquisitionViewerWidget(QWidget):
     def __init__(self, manager_widget=None, parent=None):
         super().__init__(parent)
-        self.viewer = None  
+        self.viewer = None
         self.current_path = None
         self.acquisition_manager = manager_widget if manager_widget else None
         self.setup_ui()
@@ -5529,21 +5529,21 @@ class NapariAcquisitionViewerWidget(QWidget):
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)  # No margins
         self.layout.setSpacing(0)  # Remove spacing between widgets
-        
+
         # Create container for the viewer that will stretch - no margins
         self.viewer_container = QWidget()
         self.viewer_layout = QVBoxLayout()
         self.viewer_layout.setContentsMargins(0, 0, 0, 0)  # No margins
         self.viewer_layout.setSpacing(0)  # Remove spacing between widgets
         self.viewer_container.setLayout(self.viewer_layout)
-        
+
         # Add viewer container first with stretch
         self.layout.addWidget(self.viewer_container, stretch=1)
-        
+
         # Add acquisition manager at bottom
         if self.acquisition_manager:
             self.layout.addWidget(self.acquisition_manager)
-            
+
         self.setLayout(self.layout)
 
     def show_acquisition(self, path):
@@ -5565,7 +5565,7 @@ class NapariAcquisitionViewerWidget(QWidget):
             # Configure window parenting
             qt_window = self.viewer.window._qt_window
             qt_window.setParent(self)
-            
+
             # Add to viewer layout instead of main layout
             self.viewer_layout.addWidget(qt_window)
 
