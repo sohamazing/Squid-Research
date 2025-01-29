@@ -5517,21 +5517,37 @@ class NapariMosaicDisplayWidget(QWidget):
 
 
 class NapariAcquisitionViewerWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, manager_widget=None, parent=None):
         super().__init__(parent)
-        self.viewer = None  # napari.Viewer(show=False)
-        self.current_path = None  # Track current file to prevent reloading
+        self.viewer = None  
+        self.current_path = None
+        self.acquisition_manager = manager_widget if manager_widget else None
         self.setup_ui()
 
     def setup_ui(self):
         """Create minimal layout for napari viewer."""
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)  # No margins
+        self.layout.setSpacing(0)  # Remove spacing between widgets
+        
+        # Create container for the viewer that will stretch - no margins
+        self.viewer_container = QWidget()
+        self.viewer_layout = QVBoxLayout()
+        self.viewer_layout.setContentsMargins(0, 0, 0, 0)  # No margins
+        self.viewer_layout.setSpacing(0)  # Remove spacing between widgets
+        self.viewer_container.setLayout(self.viewer_layout)
+        
+        # Add viewer container first with stretch
+        self.layout.addWidget(self.viewer_container, stretch=1)
+        
+        # Add acquisition manager at bottom
+        if self.acquisition_manager:
+            self.layout.addWidget(self.acquisition_manager)
+            
         self.setLayout(self.layout)
 
     def show_acquisition(self, path):
         """Display an OME-ZARR acquisition."""
-        # Skip if same file
         if path == self.current_path:
             return
 
@@ -5549,7 +5565,9 @@ class NapariAcquisitionViewerWidget(QWidget):
             # Configure window parenting
             qt_window = self.viewer.window._qt_window
             qt_window.setParent(self)
-            self.layout.addWidget(qt_window)
+            
+            # Add to viewer layout instead of main layout
+            self.viewer_layout.addWidget(qt_window)
 
             # Hide unused UI elements
             if hasattr(self.viewer.window, "_status_bar"):
@@ -5558,7 +5576,7 @@ class NapariAcquisitionViewerWidget(QWidget):
                 self.viewer.window._qt_viewer.layerButtons.hide()
 
             # Load the data
-            self.viewer.open(path, plugin="napari-ome-zarr", chunks=(1, 1, 1, 2048, 2048), downscale=True)
+            self.viewer.open(path, plugin="napari-ome-zarr", chunks=(1, 1, 1, 2048, 2048))
 
             # Configure each layer
             for layer in self.viewer.layers:
@@ -5568,6 +5586,18 @@ class NapariAcquisitionViewerWidget(QWidget):
             print(f"Error showing acquisition: {e}")
             self.close_viewer()
             self.current_path = None
+
+    def close_viewer(self):
+        """Clean up viewer resources."""
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None
+
+            # Clear only the viewer layout
+            while self.viewer_layout.count():
+                item = self.viewer_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
 
     def configure_layer(self, layer):
         """Configure display settings for a layer."""
@@ -5620,18 +5650,6 @@ class NapariAcquisitionViewerWidget(QWidget):
         # Black to color gradient
         return Colormap(colors=[(0, 0, 0), c1], controls=[0, 1], name=channel_info["name"])
 
-    def close_viewer(self):
-        """Clean up viewer resources."""
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
-
-            # Clear layout
-            while self.layout.count():
-                item = self.layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-
     def closeEvent(self, event):
         """Handle widget close."""
         self.close_viewer()
@@ -5653,14 +5671,17 @@ class AcquisitionManagerWidget(QWidget):
         super().__init__(parent)
         self.cache_dir = "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
-
         self.cache_file = os.path.join(self.cache_dir, "acquisitions.json")
         self.acquisitions = {}  # original path -> stitched path
         self.timepoints = []
         self.regions = []
         self.current_stitched_path = None
         self.load_cache()
-        self.setup_ui()
+
+        if SINGLE_WINDOW_ACQUISITION_VIEWER:
+            self.setup_ui_single_line()
+        else:
+            self.setup_ui()
 
     def setup_ui(self):
         """Initialize UI components."""
@@ -5694,6 +5715,39 @@ class AcquisitionManagerWidget(QWidget):
         grid.addWidget(self.region_combo, 1, 4)
 
         layout.addLayout(grid)
+        self.setLayout(layout)
+
+        # Initially disable navigation controls
+        self.set_navigation_enabled(False)
+        self.update_acquisition_list()
+
+    def setup_ui_single_line(self):
+        """Initialize UI components."""
+        layout = QHBoxLayout()
+
+        # Acquisition selection
+        layout.addWidget(QLabel("Acquisition"))
+        self.acquisition_combo = QComboBox()
+        self.acquisition_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.acquisition_combo.currentIndexChanged.connect(self.on_acquisition_changed)
+        layout.addWidget(self.acquisition_combo)  # Span 4 columns
+
+        layout.addStretch(1)
+
+        # Timepoint selection
+        layout.addWidget(QLabel("Timepoint"))
+        self.timepoint_combo = QComboBox()
+        self.timepoint_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.timepoint_combo.currentIndexChanged.connect(self.selection_changed)
+        layout.addWidget(self.timepoint_combo)
+
+        # Region selection
+        layout.addWidget(QLabel("Region"))
+        self.region_combo = QComboBox()
+        self.region_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.region_combo.currentIndexChanged.connect(self.selection_changed)
+        layout.addWidget(self.region_combo)
+
         self.setLayout(layout)
 
         # Initially disable navigation controls

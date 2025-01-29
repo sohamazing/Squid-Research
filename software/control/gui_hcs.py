@@ -658,7 +658,19 @@ class HighContentScreeningGui(QMainWindow):
                 self.imageDisplayTabs.addTab(self.napariMosaicDisplayWidget, "Mosaic View")
 
             if ENABLE_STITCHER and USE_NAPARI_ACQUISITION_VIEWER:
-                self.napariAcquisitionViewerWidget = widgets.NapariAcquisitionViewerWidget()
+                if SINGLE_WINDOW_ACQUISITION_VIEWER:
+                    self.napariAcquisitionViewerWidget = widgets.NapariAcquisitionViewerWidget(
+                        manager_widget=self.acquisitionManagerWidget
+                    )
+                    self.acquisitionManagerWidget.signal_view_acquisition.connect(
+                        self.napariAcquisitionViewerWidget.show_acquisition
+                    )
+                else:
+                    self.napariAcquisitionViewerWidget = (
+                        widgets.NapariAcquisitionViewerWidget()
+                    )  # if acquisition manager added to recordTab
+                    self.acquisitionManagerWidget.signal_view_acquisition.connect(self.showAcquisitionViewerTab)
+
                 self.imageDisplayTabs.addTab(self.napariAcquisitionViewerWidget, "Acquisition Viewer")
 
         if SUPPORT_LASER_AUTOFOCUS:
@@ -704,10 +716,9 @@ class HighContentScreeningGui(QMainWindow):
             self.recordTabWidget.addTab(self.trackingControlWidget, "Tracking")
         if ENABLE_RECORDING:
             self.recordTabWidget.addTab(self.recordingControlWidget, "Simple Recording")
-        if not self.live_only_mode and ENABLE_STITCHER and USE_NAPARI_ACQUISITION_VIEWER:
-            self.recordTabWidget.addTab(self.acquisitionManagerWidget, "Acquisition Manager")
-            # Connect view signal to viewer
-            self.acquisitionManagerWidget.signal_view_acquisition.connect(self.showAcquisitionViewerTab)
+        if not self.live_only_mode:
+            if ENABLE_STITCHER and USE_NAPARI_ACQUISITION_VIEWER and not SINGLE_WINDOW_ACQUISITION_VIEWER:
+                self.recordTabWidget.addTab(self.acquisitionManagerWidget, "Acquisition Manager")
         self.recordTabWidget.currentChanged.connect(lambda: self.resizeCurrentTab(self.recordTabWidget))
         self.resizeCurrentTab(self.recordTabWidget)
 
