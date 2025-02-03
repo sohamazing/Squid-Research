@@ -5671,7 +5671,7 @@ class AcquisitionManagerWidget(QWidget):
         super().__init__(parent)
         self.cache_dir = "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
-        self.cache_file = os.path.join(self.cache_dir, "acquisitions.json")
+        self.cache_file = os.path.join(self.cache_dir, "acquisitions.csv")
         self.acquisitions = {}  # original path -> stitched path
         self.timepoints = []
         self.regions = []
@@ -5760,26 +5760,62 @@ class AcquisitionManagerWidget(QWidget):
         self.region_combo.setEnabled(enabled)
 
     def parse_acquisition_structure(self, stitched_path):
-        """Parse timepoints and regions from stitched directory structure."""
+        """Parse timepoints and regions from stitched directory structure.
+        
+        Expected structure:
+        output_folder/
+            0_stitched/                    # Timepoint 0
+                B12_stitched.ome.zarr/     # Region B12
+            1_stitched/                    # Timepoint 1
+                B12_stitched.ome.zarr/
+        """
         self.timepoints = []
         self.regions = []
-
+        
         if not os.path.exists(stitched_path):
             return
 
-        for item in sorted(os.listdir(stitched_path)):
-            if item.endswith("_stitched"):
-                timepoint = item.split("_")[0]  # Extract timepoint number
-                timepoint_path = os.path.join(stitched_path, item)
-
-                if os.path.isdir(timepoint_path):
-                    self.timepoints.append(timepoint)
-
-                    if not self.regions:
-                        for region_file in sorted(os.listdir(timepoint_path)):
-                            if region_file.endswith("_stitched.ome.zarr"):
-                                region = region_file.split("_")[0]
-                                self.regions.append(region)
+        # Get and sort timepoints numerically
+        items = [item for item in os.listdir(stitched_path) 
+                if item.endswith('_stitched') and os.path.isdir(os.path.join(stitched_path, item))]
+        
+        if not items:
+            return
+            
+        # Extract and validate timepoints
+        timepoint_nums = []
+        for item in items:
+            try:
+                num = int(item.split('_')[0])
+                timepoint_nums.append((num, item))
+            except (ValueError, IndexError):
+                continue
+                
+        if not timepoint_nums:
+            return
+            
+        # Sort timepoints numerically and store
+        timepoint_nums.sort()  # Sort by first element of tuple (the number)
+        self.timepoints = [str(t[0]) for t in timepoint_nums]
+        
+        # Get regions from first timepoint's folder
+        first_tp_path = os.path.join(stitched_path, timepoint_nums[0][1])
+        region_files = [f for f in os.listdir(first_tp_path) 
+                       if f.endswith('_stitched.ome.zarr')]
+        
+        # Process regions (assuming format like 'B12')
+        regions = []
+        for f in region_files:
+            region = f.split('_')[0]
+            # Quick validation of region format
+            if any(c.isalpha() for c in region) and any(c.isdigit() for c in region):
+                regions.append(region)
+                
+        # Natural sort regions
+        self.regions = sorted(regions, key=lambda x: (
+            ''.join(c for c in x if c.isalpha()),
+            int(''.join(c for c in x if c.isdigit()))
+        ))
 
     def update_navigation_controls(self):
         """Update dropdown menus with available timepoints and regions."""
@@ -5792,19 +5828,59 @@ class AcquisitionManagerWidget(QWidget):
         self.set_navigation_enabled(bool(self.timepoints and self.regions))
 
     def get_current_zarr_path(self):
-        """Get path to currently selected timepoint/region zarr."""
+        """Get path to currently selected timepoint/region zarr.
+        
+        Returns the path following the standard structure:
+        output_folder/N_stitched/XN_stitched.ome.zarr
+        where N is the timepoint number and XN is the region (e.g., B2)
+        """
         if not self.current_stitched_path or not self.timepoints or not self.regions:
             return None
 
         timepoint = self.timepoint_combo.currentText()
         region = self.region_combo.currentText()
 
-        return os.path.join(self.current_stitched_path, f"{timepoint}_stitched", f"{region}_stitched.ome.zarr")
+        # Validate components
+        if not timepoint or not region:
+            return None
 
-    def selection_changed(self):
+        # Construct path following documented structure
+        timepoint_dir = f"{timepoint}_stitched"
+        zarr_name = f"{region}_stitched.ome.zarr"
+        
+        # Build and verify full path
+        full_path = os.path.join(self.current_stitched_path, timepoint_dir, zarr_name)
+        if os.path.exists(full_path):
+            return full_path
+        else:
+            print(f"Warning: Expected zarr file not found at {full_path}")
+            return None
+
+    def selection_changed_old(self):
         """Handle changes in timepoint/region selection."""
         if zarr_path := self.get_current_zarr_path():
             self.signal_view_acquisition.emit(zarr_path)
+
+    def selection_changed(self):
+        """Handle changes in timepoint/region selection."""
+        zarr_path = self.get_current_zarr_path()
+        if zarr_path:
+            print(f"Attempting to open zarr file: {zarr_path}")
+            if os.path.exists(zarr_path):
+                print(f"File exists at path: {zarr_path}")
+                # Check if it's a valid zarr
+                try:
+                    import zarr
+                    store = zarr.open(zarr_path)
+                    if store is not None:
+                        print(f"Valid zarr store found with groups: {list(store.group_keys())}")
+                        self.signal_view_acquisition.emit(zarr_path)
+                    else:
+                        print(f"Warning: Not a valid zarr store at {zarr_path}")
+                except Exception as e:
+                    print(f"Error validating zarr store: {str(e)}")
+            else:
+                print(f"Warning: File does not exist at {zarr_path}")
 
     def on_acquisition_changed(self, index):
         """Handle acquisition selection changes."""
@@ -5843,19 +5919,27 @@ class AcquisitionManagerWidget(QWidget):
             self.acquisition_combo.addItem(orig_path)
 
     def load_cache(self):
-        """Load cached acquisition paths."""
+        """Load cached acquisition paths from CSV with headers."""
         try:
             if os.path.exists(self.cache_file):
-                with open(self.cache_file, "r") as f:
-                    self.acquisitions = json.load(f)
+                with open(self.cache_file, 'r') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        self.acquisitions[row['acquisition_path']] = row['stitched_acquisition_path']
         except Exception as e:
             print(f"Error loading acquisition cache: {e}")
 
     def save_cache(self):
-        """Save acquisition paths to cache."""
+        """Save acquisition paths to CSV with headers."""
         try:
-            with open(self.cache_file, "w") as f:
-                json.dump(self.acquisitions, f)
+            with open(self.cache_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=['acquisition_path', 'stitched_acquisition_path'])
+                writer.writeheader()  # Write headers
+                for orig_path, stitched_path in self.acquisitions.items():
+                    writer.writerow({
+                        'acquisition_path': orig_path,
+                        'stitched_acquisition_path': stitched_path
+                    })
         except Exception as e:
             print(f"Error saving acquisition cache: {e}")
 

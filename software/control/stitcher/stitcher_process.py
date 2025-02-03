@@ -2017,9 +2017,9 @@ class StitcherProcess(Process):
 
                     # Save region
                     if self.output_format.endswith(".zarr"):
-                        #    output_path = self.save_region_ome_zarr(timepoint, region, stitched_region) # zarr
-                        output_path = self.save_region_aics(timepoint, region, stitched_region)  # zarr or tiff
-                    #    output_path = self.save_region_bioio(timepoint, region, stitched_region) # zarr or tiff
+                    #     output_path = self.save_region_ome_zarr(timepoint, region, stitched_region) # zarr
+                    #     output_path = self.save_region_aics(timepoint, region, stitched_region)  # zarr or tiff
+                        output_path = self.save_region_bioio(timepoint, region, stitched_region) # zarr or tiff
                     #     output_path = self.save_region_bioio_2(timepoint, region, stitched_region) # zarr
                     #     output_path = self.save_region_parallel(timepoint, region, stitched_region) # zarr # TO FIX
 
